@@ -130,72 +130,8 @@ def hello():
 			weekly_count_food = 0;
 
 
-
-
-
-
-	# stuff to remove later, for reference only
-
-	start_of_week = datetime.date.fromordinal(datetime.datetime.today().toordinal() - datetime.datetime.today().weekday())
-
-	for x in range(0,7):
-		current_day = start_of_week + timedelta(days=x)
-
-
-		for x in range(0,len(data['body']['measuregrps'])-1):
-			t_date = data['body']['measuregrps'][x]['date']
-			if (str(datetime.datetime.fromtimestamp(t_date).date()) == str(current_day)):
-				t_weight = data['body']['measuregrps'][x]['measures'][0]['value']
-				t_unit = data['body']['measuregrps'][x]['measures'][0]['unit']
-				t_date = data['body']['measuregrps'][x]['date']
-				buf.write("%.2f" % (t_weight/math.pow(10,-t_unit)))
-				buf.write(" ")
-
-		buf.write(str(current_day) + " ")
-		buf.write(WeekDay[current_day.weekday()] + "<br>")
-
-	# print scales data
-	for x in range(0,len(data['body']['measuregrps'])-1):
-	    t_weight = data['body']['measuregrps'][x]['measures'][0]['value']
-	    t_unit = data['body']['measuregrps'][x]['measures'][0]['unit']
-	    t_date = data['body']['measuregrps'][x]['date']
-	    buf.write(str(datetime.datetime.fromtimestamp(t_date).date()) + "<br>")
-	    buf.write(WeekDay[datetime.datetime.fromtimestamp(t_date).date().weekday()] + "<br>")
-	    buf.write("%.2f" % (t_weight/math.pow(10,-t_unit)))
-	    buf.write("kg<br><br>")
-
-	# print strava
-	for x in range(0,len(data_strava)-1):
-	    buf.write(str(data_strava[x]['start_date_local'].split("T")[0]) +"<br>")
-	    #buf.write(datetime.datetime.fromtimestamp(data_strava[x]['start_date_local']) +"<br>")
-	    buf.write("Time: " + str(data_strava[x]['start_date_local'].split("T")[1]) + "<br>")
-	    buf.write(str(data_strava[x]['name']) + "<br>")
-	    buf.write(str(data_strava[x]['distance']) + "<br>")
-	    temp_mins = data_strava[x]['elapsed_time']/60
-	    buf.write( str(temp_mins) + ":" + str(data_strava[x]['elapsed_time']%60) + "<br>")
-	    buf.write("<br>")
-
-	 # print trackyoureating
-	 # reverse the data so newest first
-
-	for x in range(len(data_tye)-1,-1,-1):
-		buf.write(str(datetime.datetime.strptime(data_tye[x]['date'], '%Y-%m-%d').date())+ "<br>")
-		buf.write("Calories:" + str(data_tye[x]['calories']) + "<br>")
-		buf.write("Protein:" + str(data_tye[x]['protein']) + "<br>")
-		buf.write("Carbs:" + str(data_tye[x]['carbs']) + "<br>")
-		buf.write("Fat:" + str(data_tye[x]['fats']) + "<br>")
-		buf.write("<br>")
-
-
-	# temp stuff to delete later
-	buf.write(str(len(data_tye)) + "<br>")
-	buf.write(str(len(data['body']['measuregrps'])) + "<br>")
-	buf.write(str(len(data_strava)) + "<br>")
-
-
-
  
-	#Actually return a template with all the correct data
+	# Return a template with all the correct data
 	return buf2.getvalue()
 
 
