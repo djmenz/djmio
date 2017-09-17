@@ -95,8 +95,7 @@ def hello():
 		else:
 			if (datetime.date.fromordinal(allDays[x].date).weekday() == 6):
 				buf2.write(datetime.date.fromordinal(allDays[x].date))
-				buf2.write(" " + WeekDay[datetime.date.fromordinal(allDays[x].date).weekday()])
-				buf2.write("<br>")
+				buf2.write(" " + WeekDay[datetime.date.fromordinal(allDays[x].date).weekday()] + " | ")
 
 		if (allDays[x].bodyweight > 0.0):
 			weekly_count_bodyweight = weekly_count_bodyweight + 1
@@ -115,11 +114,11 @@ def hello():
 			if (weekly_count_food > 0):
 				average_food = [x / float(weekly_count_food) for x in weekly_food]
 
-			buf2.write("<b>Average bodyweight(" + str(weekly_count_bodyweight)  + ")= " + str("%.2f" % average_bodyweight)+ "<br>")
-			buf2.write("Average Calories(" + str(weekly_count_food)  + ") = " + str(int(average_food[0]))+ "<br>")
-			buf2.write("Average Protein = " + str(int(average_food[1]))+ "<br>")
-			buf2.write("Average Fat = " + str(int(average_food[2]))+ "<br>")
-			buf2.write("Average Carbs = " + str(int(average_food[3]))+ "</b><br>")
+			buf2.write("Average: Bodyweight(" + str(weekly_count_bodyweight)  + ")= " + str("%.2f" % average_bodyweight)+ " | ")
+			buf2.write("Calories(" + str(weekly_count_food)  + ") = " + str(int(average_food[0]))+ " | ")
+			buf2.write("Protein = " + str('%10s' % int(average_food[1]))+ " | ")
+			buf2.write("Fat = " + str(int(average_food[2]))+ " | ")
+			buf2.write("Carbs = " + str(int(average_food[3]))+ "</b><br>")
 			buf2.write("---------------------<br>")
 			
 			# re init weekly counts
