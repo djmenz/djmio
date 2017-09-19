@@ -39,7 +39,7 @@ def hello():
 	#close file
 	url_file.close()
 
-	#get data for the last 150 days
+	#get data for the last 150 days. note alldays array[startdate(0) to endate[150]]
 	allDays = []
 	startdate = (datetime.date.today().toordinal()) - 150
 	enddate = datetime.date.today().toordinal()
@@ -73,6 +73,26 @@ def hello():
 		buf.write("Protein:" + str(data_tye[x]['protein']) + "<br>")
 		buf.write("Carbs:" + str(data_tye[x]['carbs']) + "<br>")
 		buf.write("Fat:" + str(data_tye[x]['fats']) + "<br>")
+
+	# Populate strava data 
+	for x in range(0,len(data_strava)-1):
+		buf2.write(str(data_strava[x]['start_date_local'].split("T")[0]) +"<br>")
+		buf2.write("Time: " + str(data_strava[x]['start_date_local'].split("T")[1]) + "<br>")
+		buf2.write(str(data_strava[x]['name']) + "<br>")
+		buf2.write(str(data_strava[x]['distance']) + "<br>")
+		temp_mins = data_strava[x]['elapsed_time']/60
+		buf2.write( str(temp_mins) + ":" + str(data_strava[x]['elapsed_time']%60) + "<br>")
+		buf2.write("<br>")
+		
+		tempDate = datetime.datetime.strptime(str(data_strava[x]['start_date_local'].split("T")[0]), '%Y-%m-%d').date().toordinal()-startdate
+		allDays[tempDate].strava_description = data_strava[x]['name']
+		allDays[tempDate].strava_distance = int(data_strava[x]['distance'])
+		allDays[tempDate].strava_time = data_strava[x]['elapsed_time']
+
+ 	    #allDays[(data_strava[x]['start_date_local'].split("T")[0]).toordinal()-startdate].strava_distance = data_strava[x]['distance']
+ 	    #self.strava_description = strava_description
+		#self.strava_distance = strava_distance
+		#self.strava_time = strava_time
 		
 	# Print each day
 
@@ -81,6 +101,8 @@ def hello():
 
 	weekly_bodyweight = 0.0
 	weekly_count_bodyweight = 0;
+
+	weekly_strava_actions = 0;
 
 	for x in range (len(allDays) -1,-1,-1):
 		if (request.args.get('average') != "yes"):
@@ -92,6 +114,15 @@ def hello():
 			buf2.write("Protein: " + str(allDays[x].protein) + "<br>")
 			buf2.write("Fat: " + str(allDays[x].fat) + "<br>")
 			buf2.write("Carbs: " + str(allDays[x].carbs) + "<br>")
+
+			if (allDays[x].strava_description != 'default_strava'):
+				buf2.write("# " + str(allDays[x].strava_description) + "<br>")
+				buf2.write("- " + str(allDays[x].strava_distance/1000) + "." + str(allDays[x].strava_distance%1000) + "km" + "<br>")
+				buf2.write("- " +  str(allDays[x].strava_time/60) + ":" + str(allDays[x].strava_time%60) + "<br>")
+
+				#Calculate and show minutes per km
+				buf2.write("- " + ("%.2f" % (allDays[x].strava_time/float(allDays[x].strava_distance)/.06)) + "min/km" + "<br>")
+
 			buf2.write("<br>")
 
 		else:
@@ -107,6 +138,9 @@ def hello():
 			weekly_count_food = weekly_count_food + 1
 			weekly_food = map(add,weekly_food,[allDays[x].calories,allDays[x].protein,allDays[x].fat,allDays[x].carbs])
 
+		if (allDays[x].strava_description != 'default_strava'):
+			weekly_strava_actions = weekly_strava_actions + 1;
+
 		if ((datetime.date.fromordinal(allDays[x].date).weekday()) == 0):
 			average_bodyweight = 0.0
 			if (weekly_count_bodyweight > 0):
@@ -119,9 +153,10 @@ def hello():
 			buf2.write("Average: Bodyweight(" + str(weekly_count_bodyweight)  + ")= " + str("%.2f" % average_bodyweight)+ " | ")
 			buf2.write("Calories(" + str(weekly_count_food)  + ") = " + str(int(average_food[0]))+ " | ")
 			buf2.write("Protein = " + str('%10s' % int(average_food[1]))+ " | ")
-			buf2.write("Fat = " + str(int(average_food[2]))+ " | ")
-			buf2.write("Carbs = " + str(int(average_food[3]))+ "</b><br>")
-			buf2.write("---------------------<br>")
+			buf2.write("Fat = " + str(int(average_food[2])) + " | ")
+			buf2.write("Carbs = " + str(int(average_food[3])) + " | ")
+			buf2.write("Strava count = " + str(weekly_strava_actions) + "<br>")
+			buf2.write("------------------------------<br>")
 			
 			# re init weekly counts
 			weekly_bodyweight = 0.0
@@ -130,6 +165,8 @@ def hello():
 			weekly_food = [0,0,0,0]
 			weekly_count_food = 0;
 
+			weekly_strava_actions = 0;
+
 
  
 	# Return a template with all the correct data
@@ -137,10 +174,10 @@ def hello():
 
 
 class OneDayData(object):
-    def __init__(self, date=datetime.datetime.today(), bodyweight = 0.0, calories = 0, protein =0, fat =0, carbs =0, strava_description = "", strava_distance=0,strava_time=0):
+    def __init__(self, date=datetime.datetime.today(), bodyweight = 0.0, calories = 0, protein =0, fat =0, carbs =0, strava_description = "default_strava", strava_distance=0,strava_time=0):
 		self.date = date
 
-		self.bodyweight = bodyweight
+		self.bodyweight = bodyweight # in kg
 
 		self.calories = calories
 		self.protein = protein
@@ -148,8 +185,8 @@ class OneDayData(object):
 		self.carbs = carbs
 
 		self.strava_description = strava_description
-		self.strava_distance = strava_distance
-		self.strava_time = strava_time
+		self.strava_distance = strava_distance # in metres
+		self.strava_time = strava_time # in seconds
 
 	
 	
