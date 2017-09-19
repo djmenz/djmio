@@ -76,23 +76,11 @@ def hello():
 
 	# Populate strava data 
 	for x in range(0,len(data_strava)-1):
-		buf2.write(str(data_strava[x]['start_date_local'].split("T")[0]) +"<br>")
-		buf2.write("Time: " + str(data_strava[x]['start_date_local'].split("T")[1]) + "<br>")
-		buf2.write(str(data_strava[x]['name']) + "<br>")
-		buf2.write(str(data_strava[x]['distance']) + "<br>")
-		temp_mins = data_strava[x]['elapsed_time']/60
-		buf2.write( str(temp_mins) + ":" + str(data_strava[x]['elapsed_time']%60) + "<br>")
-		buf2.write("<br>")
 		
 		tempDate = datetime.datetime.strptime(str(data_strava[x]['start_date_local'].split("T")[0]), '%Y-%m-%d').date().toordinal()-startdate
 		allDays[tempDate].strava_description = data_strava[x]['name']
 		allDays[tempDate].strava_distance = int(data_strava[x]['distance'])
 		allDays[tempDate].strava_time = data_strava[x]['elapsed_time']
-
- 	    #allDays[(data_strava[x]['start_date_local'].split("T")[0]).toordinal()-startdate].strava_distance = data_strava[x]['distance']
- 	    #self.strava_description = strava_description
-		#self.strava_distance = strava_distance
-		#self.strava_time = strava_time
 		
 	# Print each day
 
