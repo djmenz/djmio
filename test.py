@@ -32,14 +32,16 @@ def hello():
 	# trackyoureating
 	url_tye = url_file.readline()
 	response_tye = urllib.urlopen(url_tye)
+
+	#Note that the hardcoded date in the url must be < days from today than the hardcoded start date
 	data_tye = json.loads(response_tye.read())
 
 	#close file
 	url_file.close()
 
-	#get data for the last 90 days
+	#get data for the last 150 days
 	allDays = []
-	startdate = (datetime.date.today().toordinal()) - 90
+	startdate = (datetime.date.today().toordinal()) - 150
 	enddate = datetime.date.today().toordinal()
 
 	# Populate the dates
