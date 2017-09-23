@@ -11,6 +11,8 @@ app = Flask(__name__)
 
 @app.route("/")
 def hello():
+	number_of_days = 150
+
 	WeekDay = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
 	buf = StringIO.StringIO()
 	buf2 = StringIO.StringIO()
@@ -30,18 +32,17 @@ def hello():
 
 
 	# trackyoureating
-	url_tye = url_file.readline()
+	start_tye_url = datetime.datetime.fromordinal(((datetime.date.today().toordinal()) - number_of_days)).strftime("%Y%m%d")
+	url_tye = url_file.readline().rstrip()+start_tye_url
 	response_tye = urllib.urlopen(url_tye)
-
-	#Note that the hardcoded date in the url must be < days from today than the hardcoded start date
 	data_tye = json.loads(response_tye.read())
 
 	#close file
 	url_file.close()
 
-	#get data for the last 150 days. note alldays array[startdate(0) to endate[150]]
+	#get data for the last number_of_days days. note alldays array[startdate(0) to endate[number_of_days]]
 	allDays = []
-	startdate = (datetime.date.today().toordinal()) - 150
+	startdate = (datetime.date.today().toordinal()) - number_of_days
 	enddate = datetime.date.today().toordinal()
 
 	# Populate the dates
