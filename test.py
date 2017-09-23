@@ -81,8 +81,10 @@ def hello():
 		allDays[tempDate].strava_description = data_strava[x]['name']
 		allDays[tempDate].strava_distance = int(data_strava[x]['distance'])
 		allDays[tempDate].strava_time = data_strava[x]['elapsed_time']
+		allDays[tempDate].strava_type = data_strava[x]['type']
 		
 	# Print each day
+	buf2.write("DJM.IO <br><br>")
 
 	weekly_food = [0,0,0,0]
 	weekly_count_food = 0;
@@ -105,6 +107,7 @@ def hello():
 
 			if (allDays[x].strava_description != 'default_strava'):
 				buf2.write("# " + str(allDays[x].strava_description) + "<br>")
+				buf2.write("Type: " + str(allDays[x].strava_type) + "<br>")
 				buf2.write("- " + str(allDays[x].strava_distance/1000) + "." + str(allDays[x].strava_distance%1000) + "km" + "<br>")
 				buf2.write("- " +  str(allDays[x].strava_time/60) + ":" + str(allDays[x].strava_time%60) + "<br>")
 
@@ -162,7 +165,7 @@ def hello():
 
 
 class OneDayData(object):
-    def __init__(self, date=datetime.datetime.today(), bodyweight = 0.0, calories = 0, protein =0, fat =0, carbs =0, strava_description = "default_strava", strava_distance=0,strava_time=0):
+    def __init__(self, date=datetime.datetime.today(), bodyweight = 0.0, calories = 0, protein =0, fat =0, carbs =0, strava_description = "default_strava", strava_distance=0,strava_time=0,strava_type="default"):
 		self.date = date
 
 		self.bodyweight = bodyweight # in kg
@@ -175,6 +178,7 @@ class OneDayData(object):
 		self.strava_description = strava_description
 		self.strava_distance = strava_distance # in metres
 		self.strava_time = strava_time # in seconds
+		self.strava_type = strava_type
 
 	
 	
