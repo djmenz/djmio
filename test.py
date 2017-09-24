@@ -7,6 +7,7 @@ from operator import add
 from flask import request
 
 import datetime
+
 app = Flask(__name__)
 
 @app.route("/")
@@ -29,7 +30,6 @@ def hello():
 	url_nokia = url_file.readline()
 	response = urllib.urlopen(url_nokia)
 	data = json.loads(response.read())
-
 
 	# trackyoureating
 	start_tye_url = datetime.datetime.fromordinal(((datetime.date.today().toordinal()) - number_of_days)).strftime("%Y%m%d")
@@ -149,7 +149,9 @@ def hello():
 			buf2.write("Fat = " + str(int(average_food[2])) + " | ")
 			buf2.write("Carbs = " + str(int(average_food[3])) + " | ")
 			buf2.write("Strava count = " + str(weekly_strava_actions) + "<br>")
-			buf2.write("------------------------------<br>")
+
+			if (request.args.get('average') != "yes"):
+				buf2.write("------------------------------<br>")
 			
 			# re init weekly counts
 			weekly_bodyweight = 0.0
