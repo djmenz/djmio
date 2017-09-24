@@ -50,17 +50,18 @@ def hello():
 		tempday = OneDayData()
 		tempday.date = x
 		allDays.append(tempday)
-		#buf2.write(str(allDays[x-startdate].date) + "<br>")
 
 	# Populate the bodyweights
 	for x in range(0,len(data['body']['measuregrps'])-1):
+
 		t_date = data['body']['measuregrps'][x]['date']
 		t_weight = data['body']['measuregrps'][x]['measures'][0]['value']
 		t_unit = data['body']['measuregrps'][x]['measures'][0]['unit']
 		t_date = data['body']['measuregrps'][x]['date']
 		tempweight = ("%.2f" % (t_weight/math.pow(10,-t_unit)))
-		
-		allDays[datetime.datetime.fromtimestamp(t_date).date().toordinal()-startdate].bodyweight = tempweight
+		tempdate = datetime.datetime.fromtimestamp(t_date).date().toordinal()-startdate
+		if (tempdate >= 0):
+			allDays[tempdate].bodyweight = tempweight
 
 	# Populate the calories information
 	for x in range(len(data_tye)-1,-1,-1):
@@ -77,12 +78,12 @@ def hello():
 
 	# Populate strava data 
 	for x in range(0,len(data_strava)-1):
-		
 		tempDate = datetime.datetime.strptime(str(data_strava[x]['start_date_local'].split("T")[0]), '%Y-%m-%d').date().toordinal()-startdate
-		allDays[tempDate].strava_description = data_strava[x]['name']
-		allDays[tempDate].strava_distance = int(data_strava[x]['distance'])
-		allDays[tempDate].strava_time = data_strava[x]['elapsed_time']
-		allDays[tempDate].strava_type = data_strava[x]['type']
+		if(tempDate >= 0):
+			allDays[tempDate].strava_description = data_strava[x]['name']
+			allDays[tempDate].strava_distance = int(data_strava[x]['distance'])
+			allDays[tempDate].strava_time = data_strava[x]['elapsed_time']
+			allDays[tempDate].strava_type = data_strava[x]['type']
 		
 	# Print each day
 	buf2.write("DJM.IO <br><br>")
