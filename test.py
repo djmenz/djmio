@@ -23,13 +23,22 @@ def hello():
 
 	# Strava
 	url_strava = url_file.readline()
-	response_strava = urllib.urlopen(url_strava)
-	data_strava = json.loads(response_strava.read())
+	try:
+		response_strava = urllib.urlopen(url_strava)
+		data_strava = json.loads(response_strava.read())
+	except:
+		data_strava = ""
+	
 
 	# Nokia
 	url_nokia = url_file.readline()
-	response = urllib.urlopen(url_nokia)
-	data = json.loads(response.read())
+	try:
+		response = urllib.urlopen(url_nokia)
+		data = json.loads(response.read())
+	except:
+		data = {}
+		data['body'] = {}
+		data['body']['measuregrps'] = ""
 
 	# trackyoureating
 	start_tye_url = datetime.datetime.fromordinal(((datetime.date.today().toordinal()) - number_of_days)).strftime("%Y%m%d")
@@ -143,7 +152,7 @@ def hello():
 			if (weekly_count_food > 0):
 				average_food = [x / float(weekly_count_food) for x in weekly_food]
 
-			buf2.write("Average: Bodyweight(" + str(weekly_count_bodyweight)  + ")= " + str("%.2f" % average_bodyweight)+ " | ")
+			buf2.write("Average: BW(" + str(weekly_count_bodyweight)  + ")= " + str("%.2f" % average_bodyweight)+ " | ")
 			buf2.write("Calories(" + str(weekly_count_food)  + ") = " + str(int(average_food[0]))+ " | ")
 			buf2.write("Protein = " + str('%10s' % int(average_food[1]))+ " | ")
 			buf2.write("Fat = " + str(int(average_food[2])) + " | ")
@@ -163,7 +172,6 @@ def hello():
 			weekly_strava_actions = 0;
 
 
- 
 	# Return a template with all the correct data
 	return buf2.getvalue()
 
