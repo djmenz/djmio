@@ -36,15 +36,16 @@ def hello():
 		response = urllib.urlopen(url_nokia)
 		data = json.loads(response.read())
 	except:
-		data = {}
-		data['body'] = {}
-		data['body']['measuregrps'] = ""
+		data = ""
 
 	# trackyoureating
 	start_tye_url = datetime.datetime.fromordinal(((datetime.date.today().toordinal()) - number_of_days)).strftime("%Y%m%d")
 	url_tye = url_file.readline().rstrip()+start_tye_url
 	response_tye = urllib.urlopen(url_tye)
-	data_tye = json.loads(response_tye.read())
+	try:
+		data_tye = json.loads(response_tye.read())
+	except:
+		pass
 
 	#close file
 	url_file.close()
@@ -61,38 +62,46 @@ def hello():
 		allDays.append(tempday)
 
 	# Populate the bodyweights
-	for x in range(0,len(data['body']['measuregrps'])-1):
-
-		t_date = data['body']['measuregrps'][x]['date']
-		t_weight = data['body']['measuregrps'][x]['measures'][0]['value']
-		t_unit = data['body']['measuregrps'][x]['measures'][0]['unit']
-		t_date = data['body']['measuregrps'][x]['date']
-		tempweight = ("%.2f" % (t_weight/math.pow(10,-t_unit)))
-		tempdate = datetime.datetime.fromtimestamp(t_date).date().toordinal()-startdate
-		if (tempdate >= 0):
-			allDays[tempdate].bodyweight = tempweight
+	try:
+		for x in range(0,len(data['body']['measuregrps'])-1):
+			t_date = data['body']['measuregrps'][x]['date']
+			t_weight = data['body']['measuregrps'][x]['measures'][0]['value']
+			t_unit = data['body']['measuregrps'][x]['measures'][0]['unit']
+			t_date = data['body']['measuregrps'][x]['date']
+			tempweight = ("%.2f" % (t_weight/math.pow(10,-t_unit)))
+			tempdate = datetime.datetime.fromtimestamp(t_date).date().toordinal()-startdate
+			if (tempdate >= 0):
+				allDays[tempdate].bodyweight = tempweight
+	except Exception:
+		pass
 
 	# Populate the calories information
-	for x in range(len(data_tye)-1,-1,-1):
-		tempStartDate = datetime.datetime.strptime(data_tye[x]['date'], '%Y-%m-%d').date().toordinal()-startdate
-		allDays[tempStartDate].calories = data_tye[x]['calories']
-		allDays[tempStartDate].protein = data_tye[x]['protein']
-		allDays[tempStartDate].fat = data_tye[x]['fats']
-		allDays[tempStartDate].carbs = data_tye[x]['carbs']
+	try:
+		for x in range(len(data_tye)-1,-1,-1):
+			tempStartDate = datetime.datetime.strptime(data_tye[x]['date'], '%Y-%m-%d').date().toordinal()-startdate
+			allDays[tempStartDate].calories = data_tye[x]['calories']
+			allDays[tempStartDate].protein = data_tye[x]['protein']
+			allDays[tempStartDate].fat = data_tye[x]['fats']
+			allDays[tempStartDate].carbs = data_tye[x]['carbs']
 
-		buf.write("Calories:" + str(data_tye[x]['calories']) + "<br>")
-		buf.write("Protein:" + str(data_tye[x]['protein']) + "<br>")
-		buf.write("Carbs:" + str(data_tye[x]['carbs']) + "<br>")
-		buf.write("Fat:" + str(data_tye[x]['fats']) + "<br>")
+			buf.write("Calories:" + str(data_tye[x]['calories']) + "<br>")
+			buf.write("Protein:" + str(data_tye[x]['protein']) + "<br>")
+			buf.write("Carbs:" + str(data_tye[x]['carbs']) + "<br>")
+			buf.write("Fat:" + str(data_tye[x]['fats']) + "<br>")
+	except:
+		pass
 
-	# Populate strava data 
-	for x in range(0,len(data_strava)):
-		tempDate = datetime.datetime.strptime(str(data_strava[x]['start_date_local'].split("T")[0]), '%Y-%m-%d').date().toordinal()-startdate
-		if(tempDate >= 0):
-			allDays[tempDate].strava_description = data_strava[x]['name']
-			allDays[tempDate].strava_distance = int(data_strava[x]['distance'])
-			allDays[tempDate].strava_time = data_strava[x]['elapsed_time']
-			allDays[tempDate].strava_type = data_strava[x]['type']
+	# Populate strava data
+	try: 
+		for x in range(0,len(data_strava)):
+			tempDate = datetime.datetime.strptime(str(data_strava[x]['start_date_local'].split("T")[0]), '%Y-%m-%d').date().toordinal()-startdate
+			if(tempDate >= 0):
+				allDays[tempDate].strava_description = data_strava[x]['name']
+				allDays[tempDate].strava_distance = int(data_strava[x]['distance'])
+				allDays[tempDate].strava_time = data_strava[x]['elapsed_time']
+				allDays[tempDate].strava_type = data_strava[x]['type']
+	except:
+		pass
 		
 	# Print each day
 	buf2.write("DJM.IO <br><br>")
