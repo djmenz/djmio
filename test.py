@@ -86,7 +86,7 @@ def hello():
 		buf.write("Fat:" + str(data_tye[x]['fats']) + "<br>")
 
 	# Populate strava data 
-	for x in range(0,len(data_strava)-1):
+	for x in range(0,len(data_strava)):
 		tempDate = datetime.datetime.strptime(str(data_strava[x]['start_date_local'].split("T")[0]), '%Y-%m-%d').date().toordinal()-startdate
 		if(tempDate >= 0):
 			allDays[tempDate].strava_description = data_strava[x]['name']
