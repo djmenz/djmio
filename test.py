@@ -31,7 +31,6 @@ def hello():
 	except:
 		data_strava = ""
 	
-
 	# Nokia
 	url_nokia = url_file.readline()
 	try:
@@ -51,6 +50,23 @@ def hello():
 
 	#close file
 	url_file.close()
+
+	# Read in liftmuch data from manual file download
+	data_liftmuch = []
+
+	try:
+		with open ("djmenzworkout.html", "r") as myfile:
+			data_workouts=myfile.readlines()
+
+		for line in data_workouts:
+		    dates = line.strip()
+		    if dates.startswith("<h3>Workout"):
+		    	t = (dates.split('>')[2].split('<')[0]).replace("  "," ")
+		    	t_date = t.split(" ")[2] + "-" + t[:3] + "-" + t.split(" ")[1].strip(',')
+		    	t_day =  datetime.datetime.strptime(t_date, '%Y-%b-%d').date().toordinal()
+		    	data_liftmuch.append(t_day)
+	except Exception:
+		pass
 
 	#get data for the last number_of_days days. note alldays array[startdate(0) to endate[number_of_days]]
 	allDays = []
@@ -93,6 +109,7 @@ def hello():
 	except:
 		pass
 
+
 	# Populate strava data
 	try: 
 		for x in range(0,len(data_strava)):
@@ -105,6 +122,15 @@ def hello():
 	except:
 		pass
 		
+
+	# Populate the liftmuch data from from manual file download
+	for x in range(0,len(data_liftmuch)):
+		print data_liftmuch[x]
+		print data_liftmuch[x]-startdate
+		if (data_liftmuch[x]-startdate > -1):
+			allDays[data_liftmuch[x]-startdate].liftmuch = True
+
+
 	# Print each day
 	buf2.write("DJM.IO <br><br>")
 
@@ -116,6 +142,8 @@ def hello():
 
 	weekly_strava_actions = 0;
 
+	weekly_lifting_sessions = 0;
+
 	for x in range (len(allDays) -1,-1,-1):
 		if (request.args.get('average') != "yes"):
 			buf2.write(datetime.date.fromordinal(allDays[x].date))
@@ -126,6 +154,9 @@ def hello():
 			buf2.write("Protein: " + str(allDays[x].protein) + "<br>")
 			buf2.write("Fat: " + str(allDays[x].fat) + "<br>")
 			buf2.write("Carbs: " + str(allDays[x].carbs) + "<br>")
+
+			if (allDays[x].liftmuch == True):
+				buf2.write("@Lifting Session<br>")
 
 			if (allDays[x].strava_description != 'default_strava'):
 				buf2.write("# " + str(allDays[x].strava_description) + "<br>")
@@ -154,6 +185,9 @@ def hello():
 		if (allDays[x].strava_description != 'default_strava'):
 			weekly_strava_actions = weekly_strava_actions + 1;
 
+		if (allDays[x].liftmuch == True):
+			weekly_lifting_sessions = weekly_lifting_sessions + 1;
+
 		if ((datetime.date.fromordinal(allDays[x].date).weekday()) == 0):
 			average_bodyweight = 0.0
 			if (weekly_count_bodyweight > 0):
@@ -168,6 +202,7 @@ def hello():
 			buf2.write("Protein = " + str('%10s' % int(average_food[1]))+ " | ")
 			buf2.write("Fat = " + str(int(average_food[2])) + " | ")
 			buf2.write("Carbs = " + str(int(average_food[3])) + " | ")
+			buf2.write("Lifts = " + str(weekly_lifting_sessions) + " | ")
 			buf2.write("Strava count = " + str(weekly_strava_actions) + "<br>")
 
 			if (request.args.get('average') != "yes"):
@@ -182,13 +217,16 @@ def hello():
 
 			weekly_strava_actions = 0;
 
+			weekly_lifting_sessions = 0;
+
 
 	# Return a template with all the correct data
 	return buf2.getvalue()
 
 
 class OneDayData(object):
-    def __init__(self, date=datetime.datetime.today(), bodyweight = 0.0, calories = 0, protein =0, fat =0, carbs =0, strava_description = "default_strava", strava_distance=0,strava_time=0,strava_type="default"):
+    def __init__(self, date=datetime.datetime.today(), bodyweight = 0.0, calories = 0, protein =0, fat =0, carbs =0,
+     strava_description = "default_strava", strava_distance=0,strava_time=0,strava_type="default",liftmuch=False):
 		self.date = date
 
 		self.bodyweight = bodyweight # in kg
@@ -202,6 +240,8 @@ class OneDayData(object):
 		self.strava_distance = strava_distance # in metres
 		self.strava_time = strava_time # in seconds
 		self.strava_type = strava_type
+
+		self.liftmuch = liftmuch
 
 @app.route("/test", methods=["GET","POST"])
 def sched():
