@@ -125,8 +125,6 @@ def hello():
 
 	# Populate the liftmuch data from from manual file download
 	for x in range(0,len(data_liftmuch)):
-		print data_liftmuch[x]
-		print data_liftmuch[x]-startdate
 		if (data_liftmuch[x]-startdate > -1):
 			allDays[data_liftmuch[x]-startdate].liftmuch = True
 
@@ -165,7 +163,11 @@ def hello():
 				buf2.write("- " +  str(allDays[x].strava_time/60) + ":" + str(allDays[x].strava_time%60) + "<br>")
 
 				#Calculate and show minutes per km
-				buf2.write("- " + ("%.2f" % (allDays[x].strava_time/float(allDays[x].strava_distance)/.06)) + "min/km" + "<br>")
+				total_component = ((allDays[x].strava_time/float(allDays[x].strava_distance)/.06))
+				min_component = int(total_component)
+				sec_component = int((total_component % 1) * 60)
+
+				buf2.write("- " + str(min_component) + ":" + str(sec_component) + "min/km" + "<br>")
 
 			buf2.write("<br>")
 
