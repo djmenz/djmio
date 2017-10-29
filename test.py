@@ -130,7 +130,7 @@ def hello():
 
 
 	# Print each day
-	buf2.write("DJM.IO <br><br>")
+	buf2.write("DJM.IO<br><br>")
 
 	weekly_food = [0,0,0,0]
 	weekly_count_food = 0;
@@ -245,26 +245,4 @@ class OneDayData(object):
 
 		self.liftmuch = liftmuch
 
-@app.route("/test", methods=["GET","POST"])
-def sched():
-	try:
-		if request.method == "POST":
-			sched_info = str(
-				request.form['11'] + ';' + request.form['12'] + ';' + request.form['13'] + ';' + 
-				request.form['21'] + ';' + request.form['22'] + ';' + request.form['23'] + ';' + 
-				request.form['31'] + ';' + request.form['32'] + ';' + request.form['33'] + ';' + 
-				request.form['41'] + ';' + request.form['42'] + ';' + request.form['43'] + ';' + 
-				request.form['51'] + ';' + request.form['52'] + ';' + request.form['53'] + ';' + 
-				request.form['61'] + ';' + request.form['62'] + ';' + request.form['63'] + ';' + 
-				request.form['71'] + ';' + request.form['72'] + ';' + request.form['73']
-				)
-			with open('sched', 'w') as file:
-    				file.write(sched_info)
-	
-	except:
-		pass
-
-	with open ("sched", "r") as myfile:
-		info=myfile.readlines()
-	return render_template('table.html',info=info[0].split(';'))
 	
