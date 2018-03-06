@@ -14,7 +14,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def hello():
-	number_of_days = 150
+	number_of_days = 180
 
 	WeekDay = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
 	buf = StringIO.StringIO()
