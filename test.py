@@ -19,6 +19,8 @@ def hello():
 	WeekDay = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
 	buf = StringIO.StringIO()
 	buf2 = StringIO.StringIO()
+
+
     
 	#read_urls_from_file
 	url_file = open("url_info.txt","r")
@@ -131,6 +133,9 @@ def hello():
 
 	# Print each day
 	buf2.write("DJM.IO<br><br>")
+
+	# add button
+	buf2.write("<button type=\"button\">Email summary info</button><br>")
 
 	weekly_food = [0,0,0,0]
 	weekly_count_food = 0;
