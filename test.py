@@ -14,7 +14,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def hello():
-	number_of_days = 180
+	number_of_days = 270
 
 	WeekDay = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
 	buf = StringIO.StringIO()
@@ -57,16 +57,16 @@ def hello():
 	data_liftmuch = []
 
 	try:
-		with open ("djmenzworkout.html", "r") as myfile:
-			data_workouts=myfile.readlines()
+		with open ("workout_page_source.html", "r") as myfile:
+			data_lm=myfile.readlines()
 
-		for line in data_workouts:
-		    dates = line.strip()
-		    if dates.startswith("<h3>Workout"):
-		    	t = (dates.split('>')[2].split('<')[0]).replace("  "," ")
-		    	t_date = t.split(" ")[2] + "-" + t[:3] + "-" + t.split(" ")[1].strip(',')
-		    	t_day =  datetime.datetime.strptime(t_date, '%Y-%b-%d').date().toordinal()
-		    	data_liftmuch.append(t_day)
+		for line in data_lm:
+			dates = line.strip()
+			if dates.startswith('<small class="hidden-xs hidden-sm">'):
+				t = (dates.split('>')[1].split('<')[0]).replace("  "," ")
+				t_date = t.split(" ")[2] + "-" + t[:3] + "-" + t.split(" ")[1].strip(',')
+				t_day = datetime.datetime.strptime(t_date, '%Y-%b-%d').date().toordinal()
+				data_liftmuch.append(t_day)
 	except Exception:
 		pass
 
