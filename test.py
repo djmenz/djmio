@@ -1,6 +1,6 @@
 from flask import Flask
 import urllib, json
-import StringIO
+from io import StringIO
 import math
 from datetime import timedelta
 from operator import add
@@ -17,8 +17,8 @@ def hello():
 	number_of_days = 270
 
 	WeekDay = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
-	buf = StringIO.StringIO()
-	buf2 = StringIO.StringIO()
+	buf = StringIO()
+	buf2 = StringIO()
 
 
     
@@ -28,7 +28,7 @@ def hello():
 	# Strava
 	url_strava = url_file.readline()
 	try:
-		response_strava = urllib.urlopen(url_strava)
+		response_strava = urllib.request.urlopen(url_strava)
 		data_strava = json.loads(response_strava.read())
 	except:
 		data_strava = ""
@@ -36,7 +36,7 @@ def hello():
 	# Nokia
 	url_nokia = url_file.readline()
 	try:
-		response = urllib.urlopen(url_nokia)
+		response = urllib.request.urlopen(url_nokia)
 		data = json.loads(response.read())
 	except:
 		data = ""
@@ -44,7 +44,7 @@ def hello():
 	# trackyoureating
 	start_tye_url = datetime.datetime.fromordinal(((datetime.date.today().toordinal()) - number_of_days)).strftime("%Y%m%d")
 	url_tye = url_file.readline().rstrip()+start_tye_url
-	response_tye = urllib.urlopen(url_tye)
+	response_tye = urllib.request.urlopen(url_tye)
 	try:
 		data_tye = json.loads(response_tye.read())
 	except:
@@ -53,22 +53,22 @@ def hello():
 	#close file
 	url_file.close()
 
-	# Read in liftmuch data from manual file download
-	data_liftmuch = []
+	# # Read in liftmuch data from manual file download
+	# data_liftmuch = []
 
-	try:
-		with open ("workout_page_source.html", "r") as myfile:
-			data_lm=myfile.readlines()
+	# try:
+	# 	with open ("workout_page_source.html", "r") as myfile:
+	# 		data_lm=myfile.readlines()
 
-		for line in data_lm:
-			dates = line.strip()
-			if dates.startswith('<small class="hidden-xs hidden-sm">'):
-				t = (dates.split('>')[1].split('<')[0]).replace("  "," ")
-				t_date = t.split(" ")[2] + "-" + t[:3] + "-" + t.split(" ")[1].strip(',')
-				t_day = datetime.datetime.strptime(t_date, '%Y-%b-%d').date().toordinal()
-				data_liftmuch.append(t_day)
-	except Exception:
-		pass
+	# 	for line in data_lm:
+	# 		dates = line.strip()
+	# 		if dates.startswith('<small class="hidden-xs hidden-sm">'):
+	# 			t = (dates.split('>')[1].split('<')[0]).replace("  "," ")
+	# 			t_date = t.split(" ")[2] + "-" + t[:3] + "-" + t.split(" ")[1].strip(',')
+	# 			t_day = datetime.datetime.strptime(t_date, '%Y-%b-%d').date().toordinal()
+	# 			data_liftmuch.append(t_day)
+	# except Exception:
+	# 	pass
 
 	#get data for the last number_of_days days. note alldays array[startdate(0) to endate[number_of_days]]
 	allDays = []
@@ -126,16 +126,15 @@ def hello():
 		
 
 	# Populate the liftmuch data from from manual file download
-	for x in range(0,len(data_liftmuch)):
-		if (data_liftmuch[x]-startdate > -1):
-			allDays[data_liftmuch[x]-startdate].liftmuch = True
+	#for x in range(0,len(data_liftmuch)):
+	#	if (data_liftmuch[x]-startdate > -1):
+	#		allDays[data_liftmuch[x]-startdate].liftmuch = True
 
 
 	# Print each day
 	buf2.write("DJM.IO<br><br>")
 
 	# add button
-	buf2.write("<button type=\"button\">Email summary info</button><br>")
 
 	weekly_food = [0,0,0,0]
 	weekly_count_food = 0;
@@ -149,7 +148,7 @@ def hello():
 
 	for x in range (len(allDays) -1,-1,-1):
 		if (request.args.get('average') != "yes"):
-			buf2.write(datetime.date.fromordinal(allDays[x].date))
+			buf2.write(str(datetime.date.fromordinal(allDays[x].date)))
 			buf2.write(" " + WeekDay[datetime.date.fromordinal(allDays[x].date).weekday()])
 			buf2.write("<br>")
 			buf2.write(str(allDays[x].bodyweight) + "kg" + "<br>")
@@ -181,7 +180,7 @@ def hello():
 				buf2.write(datetime.date.fromordinal(allDays[x].date))
 				buf2.write(" " + WeekDay[datetime.date.fromordinal(allDays[x].date).weekday()] + " | ")
 
-		if (allDays[x].bodyweight > 0.0):
+		if (float(allDays[x].bodyweight) > 0.0):
 			weekly_count_bodyweight = weekly_count_bodyweight + 1
 			weekly_bodyweight += float(allDays[x].bodyweight)
 
@@ -232,7 +231,7 @@ def hello():
 
 
 class OneDayData(object):
-    def __init__(self, date=datetime.datetime.today(), bodyweight = 0.0, calories = 0, protein =0, fat =0, carbs =0,
+	def __init__(self, date=datetime.datetime.today(), bodyweight = 0.0, calories = 0, protein =0, fat =0, carbs =0,
      strava_description = "default_strava", strava_distance=0,strava_time=0,strava_type="default",liftmuch=False):
 		self.date = date
 
