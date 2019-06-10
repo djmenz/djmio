@@ -11,13 +11,23 @@ from flask import Flask
 from flask import request
 from flask import render_template
 
-# save to git
-# redploy containers to update youtube DL version
+# setup ssh  keys for git
+# code to refresh fitbit token
+# put steps data into page
+# display average steps for the week
+# redeploy to ec2 isntance
 
-# get fitbit data
+
+# show all data in weekly summary
+# get resting HR from fitbit
+# get sleep data from fitbit
 # deploy properly with actual workflow
 # setup caching so its not a 7 second page load
 # Ensure it works for all failures of any website access or data
+# only refresh token when it has failed
+
+# get free ssl cert for trackyoureating
+# build proper oauth responder on trackyoureating
 
 # LiftMuch - workout dates, workout
 
@@ -35,12 +45,13 @@ def main_page():
     # Get all the user data from each service
     
     refresh_withings_token()
+    refresh_fitbit_token()
 
     auth_urls = get_user_data()
     data_strava = get_data_from_site(auth_urls['strava']['url'] + auth_urls['strava']['access_token'])
     data_tye = get_data_from_site(auth_urls['tye']['url'])[::-1]
     data_withings = get_data_withings(auth_urls['withings']['url'], {"Authorization": "Bearer {}".format(auth_urls['withings']['auth_token_dm'])})
-
+    data_fitbit_step = get_step_data_fitbit(auth_urls['fitbit']['url_steps'], {"Authorization": "Bearer {}".format(auth_urls['fitbit']['access_token'])})
     
 
     # Get the earlist date to construct the main data array
@@ -170,8 +181,9 @@ def refresh_withings_token():
     refresh_token = auth_urls['withings']['refresh_token_dm']
     data = {'client_id': client_id, 'grant_type': 'refresh_token', 'client_secret': client_secret, 'refresh_token': refresh_token }
     resp_json = requests.post(url=url, data=data).json()
-    print(resp_json)
-    
+    #print(resp_json)
+    print("withings token refreshed")
+
     table.put_item(
                     Item={
                         'platform': 'withings',
@@ -183,6 +195,10 @@ def refresh_withings_token():
                         'client_secret': client_secret,
                     },
                 )
+    return
+
+def refresh_fitbit_token():
+
     return
 
 def convert_ord_to_day_of_week(ordinal):
@@ -200,8 +216,15 @@ def get_data_withings(url, headers):
     start_time = arrow.utcnow()
     resp_json = requests.get(url=url, headers=headers).json()
     finish_time = arrow.utcnow()
-    print(resp_json)
     resp_json = resp_json['body']['measuregrps']
+    print(str(finish_time - start_time) + " " + url.split('/')[2] + " items: " + str(len(resp_json)))
+    return resp_json
+
+def get_step_data_fitbit(url, headers):
+    start_time = arrow.utcnow()
+    resp_json = requests.get(url,headers=headers).json()
+    resp_json = resp_json['activities-steps']
+    finish_time = arrow.utcnow()
     print(str(finish_time - start_time) + " " + url.split('/')[2] + " items: " + str(len(resp_json)))
     return resp_json
 
@@ -242,7 +265,8 @@ class OneDay(object):
         fats = 0, 
         carbs = 0,
         strava_activities = [], 
-        liftmuch=False
+        liftmuch=False,
+        steps = 0
         ):
 
         self.date = date
@@ -253,12 +277,14 @@ class OneDay(object):
         self.carbs = carbs
         self.strava_activities = []
         self.liftmuch = liftmuch
+        self.steps = steps
 
     def __repr__(self):
         return (week_day[convert_ord_to_day_of_week(self.date)] + " " + ordinal_to_str(self.date) + " "
             + 'bw: ' + str(self.bodyweight) + " " 
             + 'calories: ' + str(self.calories) + " " 
-            + " strava_activities: " + str(len(self.strava_activities))
+            + 'steps: ' + str(self.steps) + " " 
+            + "strava_count: " + str(len(self.strava_activities))
             )
 
 class StravaActivity(object):
