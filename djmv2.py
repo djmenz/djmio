@@ -10,21 +10,19 @@ from io import StringIO
 from flask import Flask
 from flask import request
 from flask import render_template
+from requests.auth import HTTPBasicAuth
 
-# setup ssh  keys for git
 # code to refresh fitbit token
-# put steps data into page
-# display average steps for the week
-# redeploy to ec2 isntance
-
+# redeploy to ec2 instance
 
 # show all data in weekly summary
 # get resting HR from fitbit
 # get sleep data from fitbit
 # deploy properly with actual workflow
 # setup caching so its not a 7 second page load
-# Ensure it works for all failures of any website access or data
+# Ensure it works for all failures of any website access or data (any api failures/no data returned)
 # only refresh token when it has failed
+# refresh token using update instead of put
 
 # get free ssl cert for trackyoureating
 # build proper oauth responder on trackyoureating
@@ -38,42 +36,35 @@ app = Flask(__name__)
 @app.route("/")
 def main_page():
 
-
     buf = StringIO()
     buf.write("DJM.IO<br><br>")
     
     # Get all the user data from each service
-    
     refresh_withings_token()
     refresh_fitbit_token()
 
     auth_urls = get_user_data()
+
     data_strava = get_data_from_site(auth_urls['strava']['url'] + auth_urls['strava']['access_token'])
     data_tye = get_data_from_site(auth_urls['tye']['url'])[::-1]
     data_withings = get_data_withings(auth_urls['withings']['url'], {"Authorization": "Bearer {}".format(auth_urls['withings']['auth_token_dm'])})
-    data_fitbit_step = get_step_data_fitbit(auth_urls['fitbit']['url_steps'], {"Authorization": "Bearer {}".format(auth_urls['fitbit']['access_token'])})
+    data_fitbit_step = get_step_data_fitbit(auth_urls['fitbit']['url_steps'], {"Authorization": "Bearer {}".format(auth_urls['fitbit']['access_token'])})[::-1]
     
+    # Get the earliest date to construct the main data array
+    #earliest_date_epoch = int(min(
+    #                local_date_str_to_epoch(data_strava[-1]['start_date_local'],'%Y-%m-%dT%H:%M:%SZ'),
+    #                local_date_str_to_epoch(data_tye[-1]['date'],'%Y-%m-%d'),
+    #                data_withings[-1]['date']
+    #                ))
 
-    # Get the earlist date to construct the main data array
-    earliest_date_epoch = int(min(
-                    local_date_str_to_epoch(data_strava[-1]['start_date_local'],'%Y-%m-%dT%H:%M:%SZ'),
-                    local_date_str_to_epoch(data_tye[-1]['date'],'%Y-%m-%d'),
-                    data_withings[-1]['date']
-                    ))
-
-
-    todays_date_epoch = int(datetime.datetime.now().timestamp())
-
-    earliest_date = date.toordinal(datetime.datetime.fromtimestamp(earliest_date_epoch))
+    #earliest_date = date.toordinal(datetime.datetime.fromtimestamp(earliest_date_epoch))
     
     #First day of 2018 instead 
     earliest_date = local_date_str_to_ordinal('01-01-2018', '%d-%m-%Y')
-
+    todays_date_epoch = int(datetime.datetime.now().timestamp())
     todays_date = date.toordinal(datetime.datetime.fromtimestamp(todays_date_epoch))
 
-
     start_time = arrow.utcnow()
-
     allDays = collections.OrderedDict()
     for day in range(earliest_date,todays_date+1):
         
@@ -81,14 +72,9 @@ def main_page():
         tempday.date = day
         allDays[day]= tempday
 
-
-
+    # populate strava data
     for date_entry in data_strava:
-        #create new strava activity
-        #print(date_entry['start_date_local'])
-
         this_day =  epoch_to_ordinal(local_date_str_to_epoch(date_entry['start_date_local'],'%Y-%m-%dT%H:%M:%SZ'))
-        print(this_day)
         temp_strava_activity = StravaActivity(
             strava_date = date_entry['start_date_local'], 
             strava_description = date_entry['name'], 
@@ -101,11 +87,11 @@ def main_page():
             #print(temp_strava_activity)
             allDays[this_day].strava_activities.append(temp_strava_activity)
         except KeyError:
-            print('Key Error Error Strava')
+            #print('Key Error Error Strava')
             continue
 
+    # populate tye data
     for data_entry in data_tye:
-
         this_day = local_date_str_to_ordinal(data_entry['date'], '%Y-%m-%d')
         try:
             allDays[this_day].carbs = data_entry['carbs']
@@ -113,9 +99,10 @@ def main_page():
             allDays[this_day].protein = data_entry['protein']
             allDays[this_day].fat = data_entry['fats']
         except KeyError:
-            print('key error tye')
+            #print('key error tye')
             continue
 
+    #populate withings data
     for data_entry in data_withings:
         this_day = epoch_to_ordinal(data_entry['date'])
         try:
@@ -126,13 +113,24 @@ def main_page():
             tempweight = ("%.2f" % (t_weight/math.pow(10,-t_unit)))
             allDays[this_day].bodyweight = tempweight
         except KeyError:
-            print('key error withings')
+            #print('key error withings')
             continue   
+
+    #populate fitbit-step data
+    for data_entry in data_fitbit_step:
+        this_day = local_date_str_to_ordinal(data_entry['dateTime'], '%Y-%m-%d')
+        try:
+            temp_steps = data_entry['value']
+            allDays[this_day].steps = temp_steps
+        except KeyError:
+            print('key error fitbit steps')
+            continue  
 
     # Reversing it to make the newest days the lowest array index
     all_days_list = list(allDays)[::-1]
 
     week_bws = []
+    week_steps = []
 
     for day in all_days_list:
         
@@ -141,15 +139,26 @@ def main_page():
         if (float(allDays[day].bodyweight) > float(0.0)):
             week_bws.append(float(allDays[day].bodyweight))
 
+        if (int(allDays[day].steps) > 50): #50 steps if i used the fitbit 
+            week_steps.append(float(allDays[day].steps))
+
+
         buf.write(str(allDays[day]) + '<br>')
         if (int_day == 0):
             week_avg_bw = 0.0
+            week_avg_steps = 0
+
             if ((len(week_bws)) > 0):
                 week_avg_bw = sum(week_bws) / len(week_bws)
 
-            buf.write("Week average: " + ("{:.2f}".format(week_avg_bw)) + '<br>')
+            if ((len(week_steps)) > 0):
+                week_avg_steps = sum(week_steps) / len(week_steps)
+
+            buf.write("Week average BW: " + ("{:.2f}".format(week_avg_bw)) + 'kg<br>')
+            buf.write("Week average steps: " + ("{:.0f}".format(week_avg_steps)) + '<br>')
             buf.write('<br>')
             week_bws = []
+            week_steps = []
 
 
     finish_time = arrow.utcnow()
@@ -181,7 +190,6 @@ def refresh_withings_token():
     refresh_token = auth_urls['withings']['refresh_token_dm']
     data = {'client_id': client_id, 'grant_type': 'refresh_token', 'client_secret': client_secret, 'refresh_token': refresh_token }
     resp_json = requests.post(url=url, data=data).json()
-    #print(resp_json)
     print("withings token refreshed")
 
     table.put_item(
@@ -198,7 +206,34 @@ def refresh_withings_token():
     return
 
 def refresh_fitbit_token():
+    dynamodb = boto3.resource('dynamodb', region_name='ap-southeast-2')
+    table = dynamodb.Table('djmio_platform_urls')
+    auth_urls = get_user_data()
+    
+    url_refresh_token = auth_urls['fitbit']['url_refresh_token']
+    url_steps = auth_urls['fitbit']['url_steps']
+    client_id = auth_urls['fitbit']['client_id']
+    client_secret = auth_urls['fitbit']['client_secret']
+    refresh_token = auth_urls['fitbit']['refresh_token']
+    access_token = auth_urls['fitbit']['access_token']
 
+    headers = HTTPBasicAuth(client_id, client_secret)
+    data = {'grant_type': 'refresh_token', 'refresh_token': refresh_token }
+    
+    resp_json = requests.post(url=url_refresh_token, auth=HTTPBasicAuth(client_id, client_secret), data=data).json()
+    print("fitbit token refreshed")
+
+    table.put_item(
+                    Item={
+                        'platform': 'fitbit',
+                        'client_id': client_id,
+                        'client_secret': client_secret,
+                        'url_refresh_token': url_refresh_token,
+                        'refresh_token': resp_json['refresh_token'],
+                        'access_token': resp_json['access_token'],
+                        'url_steps': url_steps,
+                    },
+                )
     return
 
 def convert_ord_to_day_of_week(ordinal):
@@ -252,7 +287,7 @@ def local_date_str_to_ordinal(strdate, date_string):
 
 
 def main():
-    print("Beginning")
+    #main_page()
     app.run()
 
 
