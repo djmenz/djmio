@@ -12,23 +12,6 @@ from flask import request
 from flask import render_template
 from requests.auth import HTTPBasicAuth
 
-# code to refresh fitbit token
-# redeploy to ec2 instance
-
-# show all data in weekly summary
-# get resting HR from fitbit
-# get sleep data from fitbit
-# deploy properly with actual workflow
-# setup caching so its not a 7 second page load
-# Ensure it works for all failures of any website access or data (any api failures/no data returned)
-# only refresh token when it has failed
-# refresh token using update instead of put
-
-# get free ssl cert for trackyoureating
-# build proper oauth responder on trackyoureating
-
-# LiftMuch - workout dates, workout
-
 week_day = ['M','T','W','T','F','S','S']
 
 app = Flask(__name__)
@@ -49,15 +32,6 @@ def main_page():
     data_tye = get_data_from_site(auth_urls['tye']['url'])[::-1]
     data_withings = get_data_withings(auth_urls['withings']['url'], {"Authorization": "Bearer {}".format(auth_urls['withings']['auth_token_dm'])})
     data_fitbit_step = get_step_data_fitbit(auth_urls['fitbit']['url_steps'], {"Authorization": "Bearer {}".format(auth_urls['fitbit']['access_token'])})[::-1]
-    
-    # Get the earliest date to construct the main data array
-    #earliest_date_epoch = int(min(
-    #                local_date_str_to_epoch(data_strava[-1]['start_date_local'],'%Y-%m-%dT%H:%M:%SZ'),
-    #                local_date_str_to_epoch(data_tye[-1]['date'],'%Y-%m-%d'),
-    #                data_withings[-1]['date']
-    #                ))
-
-    #earliest_date = date.toordinal(datetime.datetime.fromtimestamp(earliest_date_epoch))
     
     #First day of 2018 instead 
     earliest_date = local_date_str_to_ordinal('01-01-2018', '%d-%m-%Y')
