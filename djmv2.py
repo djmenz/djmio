@@ -17,11 +17,148 @@ week_day = ['M','T','W','T','F','S','S']
 app = Flask(__name__)
 
 @app.route("/")
+def read_from_s3():
+    s3 = boto3.client('s3')
+    s3.download_file('djmio', 'current_full_page_djmio', '/tmp/test_page.html')
+    file = open('/tmp/test_page.html', 'r')
+    html_string = (file.read() )
+    return html_string
+
+@app.route("/w")
+def read_from_s3weekly():
+    s3 = boto3.client('s3')
+    s3.download_file('djmio', 'current_weekly_page_djmio', '/tmp/test_page.html')
+    file = open('/tmp/test_page.html', 'r')
+    html_string = (file.read() )
+    return html_string
+
+@app.route("/daily")
 def main_page():
+
+    start_time = arrow.utcnow()
 
     buf = StringIO()
     buf.write("DJM.IO<br><br>")
+
+    allDays = generate_all_days_data()
     
+    #Reversing it to make the newest days the lowest array index
+    all_days_list = list(allDays)[::-1]
+
+    week_bws = []
+    week_steps = []
+    week_calories = []
+
+    for day in all_days_list:
+        
+        int_day = convert_ord_to_day_of_week(allDays[day].date)
+
+        if (float(allDays[day].bodyweight) > float(0.0)):
+            week_bws.append(float(allDays[day].bodyweight))
+
+        if (int(allDays[day].steps) > 50): #50 steps if i used the fitbit 
+            week_steps.append(float(allDays[day].steps))
+
+        if (float(allDays[day].calories) > 0): #50 steps if i used the fitbit 
+            week_calories.append(float(allDays[day].calories))
+
+
+        buf.write(str(allDays[day]) + '<br>')
+        if (int_day == 0):
+            week_avg_bw = 0.0
+            week_avg_steps = 0
+            week_avg_calories = 0.0
+
+            if ((len(week_bws)) > 0):
+                week_avg_bw = sum(week_bws) / len(week_bws)
+
+            if ((len(week_steps)) > 0):
+                week_avg_steps = sum(week_steps) / len(week_steps)
+
+            if ((len(week_calories)) > 0):
+                week_avg_calories = sum(week_calories) / len(week_calories)
+
+            buf.write("Week average BW: " + ("{:.2f}".format(week_avg_bw)) + 'kg<br>')
+            buf.write("Week average steps: " + ("{:.0f}".format(week_avg_steps)) + '<br>')
+            buf.write("Week average cals: " + ("{:.0f}".format(week_avg_calories)) + ' ({}/7)'.format(len(week_calories))+ '<br>')
+            buf.write('<br>')
+            week_bws = []
+            week_steps = []
+            week_calories = []
+
+
+    finish_time = arrow.utcnow()
+
+    # duplicate for weekly etc
+    save_html_to_s3(buf.getvalue(),'current_full_page_djmio')
+
+    print(str(finish_time - start_time) + " " + "Generating data array")
+
+    return buf.getvalue()
+
+
+@app.route("/weekly")
+def weekly_page():
+    buf = StringIO()
+    buf.write("DJM.IO<br><br>")
+
+    allDays = generate_all_days_data()
+    
+    #Reversing it to make the newest days the lowest array index
+    all_days_list = list(allDays)[::-1]
+
+    week_bws = []
+    week_steps = []
+    week_calories = []
+
+    for day in all_days_list:
+        
+        int_day = convert_ord_to_day_of_week(allDays[day].date)
+
+        if (float(allDays[day].bodyweight) > float(0.0)):
+            week_bws.append(float(allDays[day].bodyweight))
+
+        if (int(allDays[day].steps) > 50): #50 steps if i used the fitbit 
+            week_steps.append(float(allDays[day].steps))
+
+        if (float(allDays[day].calories) > 0): #50 steps if i used the fitbit 
+            week_calories.append(float(allDays[day].calories))
+
+
+        #buf.write(str(allDays[day]) + '<br>')
+        if (int_day == 0):
+            buf.write(str(allDays[day])[0:12] + ' - ')
+            week_avg_bw = 0.0
+            week_avg_steps = 0
+            week_avg_calories = 0.0
+
+            if ((len(week_bws)) > 0):
+                week_avg_bw = sum(week_bws) / len(week_bws)
+
+            if ((len(week_steps)) > 0):
+                week_avg_steps = sum(week_steps) / len(week_steps)
+
+            if ((len(week_calories)) > 0):
+                week_avg_calories = sum(week_calories) / len(week_calories)
+
+            buf.write("Week average BW: " + ("{:.2f}".format(week_avg_bw)) + 'kg - ')
+            buf.write("Week average steps: " + ("{:.0f}".format(week_avg_steps)) + ' - ')
+            buf.write("Week average cals: " + ("{:.0f}".format(week_avg_calories)) + ' ({}/7)'.format(len(week_calories)))
+            buf.write('<br>')
+            week_bws = []
+            week_steps = []
+            week_calories = []
+
+    save_html_to_s3(buf.getvalue(),'current_weekly_page_djmio')
+
+    return buf.getvalue()
+
+#import pdb; pdb.set_trace() 
+
+def generate_all_days_data():
+
+    allDays = collections.OrderedDict()
+
     # Get all the user data from each service
     refresh_withings_token()
     refresh_fitbit_token()
@@ -33,13 +170,14 @@ def main_page():
     data_withings = get_data_withings(auth_urls['withings']['url'], {"Authorization": "Bearer {}".format(auth_urls['withings']['auth_token_dm'])})
     data_fitbit_step = get_step_data_fitbit(auth_urls['fitbit']['url_steps'], {"Authorization": "Bearer {}".format(auth_urls['fitbit']['access_token'])})[::-1]
     
+    #data_fitbit_hr = get_hr_data_fitbit()
+    #data_fitbit_sleep = get_hr_data_sleep()
+    
     #First day of 2018 instead 
     earliest_date = local_date_str_to_ordinal('01-01-2018', '%d-%m-%Y')
     todays_date_epoch = int(datetime.datetime.now().timestamp())
     todays_date = date.toordinal(datetime.datetime.fromtimestamp(todays_date_epoch))
 
-    start_time = arrow.utcnow()
-    allDays = collections.OrderedDict()
     for day in range(earliest_date,todays_date+1):
         
         tempday = OneDay()
@@ -100,47 +238,8 @@ def main_page():
             print('key error fitbit steps')
             continue  
 
-    # Reversing it to make the newest days the lowest array index
-    all_days_list = list(allDays)[::-1]
+    return allDays
 
-    week_bws = []
-    week_steps = []
-
-    for day in all_days_list:
-        
-        int_day = convert_ord_to_day_of_week(allDays[day].date)
-
-        if (float(allDays[day].bodyweight) > float(0.0)):
-            week_bws.append(float(allDays[day].bodyweight))
-
-        if (int(allDays[day].steps) > 50): #50 steps if i used the fitbit 
-            week_steps.append(float(allDays[day].steps))
-
-
-        buf.write(str(allDays[day]) + '<br>')
-        if (int_day == 0):
-            week_avg_bw = 0.0
-            week_avg_steps = 0
-
-            if ((len(week_bws)) > 0):
-                week_avg_bw = sum(week_bws) / len(week_bws)
-
-            if ((len(week_steps)) > 0):
-                week_avg_steps = sum(week_steps) / len(week_steps)
-
-            buf.write("Week average BW: " + ("{:.2f}".format(week_avg_bw)) + 'kg<br>')
-            buf.write("Week average steps: " + ("{:.0f}".format(week_avg_steps)) + '<br>')
-            buf.write('<br>')
-            week_bws = []
-            week_steps = []
-
-
-    finish_time = arrow.utcnow()
-    print(str(finish_time - start_time) + " " + "Generating data array")
-
-    return buf.getvalue()
-
-#import pdb; pdb.set_trace() 
 
 def get_user_data():
     dynamodb = boto3.resource('dynamodb', region_name='ap-southeast-2')
@@ -259,11 +358,13 @@ def local_date_str_to_ordinal(strdate, date_string):
     ordinal = date.toordinal(datetime_object)
     return ordinal
 
+def save_html_to_s3(full_html_page, object_name):
+    s3 = boto3.resource('s3')
+    s3.Bucket('djmio').put_object(Key=object_name, Body=full_html_page)
 
 def main():
     #main_page()
     app.run()
-
 
 class OneDay(object):
     def __init__(self, 
@@ -291,9 +392,12 @@ class OneDay(object):
     def __repr__(self):
         return (week_day[convert_ord_to_day_of_week(self.date)] + " " + ordinal_to_str(self.date) + " "
             + 'bw: ' + str(self.bodyweight) + " " 
-            + 'calories: ' + str(self.calories) + " " 
+            + 'cals: ' + str(self.calories) + " " 
+            + 'P: ' + str(self.protein) + " "
+            + 'C: ' + str(self.carbs) + " "
+            + 'F: ' + str(self.fats) + " "
             + 'steps: ' + str(self.steps) + " " 
-            + "strava_count: " + str(len(self.strava_activities))
+            + "strava: " + str(len(self.strava_activities))
             )
 
 class StravaActivity(object):
