@@ -13,6 +13,7 @@ from flask import render_template
 from requests.auth import HTTPBasicAuth
 
 week_day = ['M','T','W','T','F','S','S']
+week_day_long = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 
 app = Flask(__name__)
 
@@ -48,6 +49,8 @@ def main_page():
     week_bws = []
     week_steps = []
     week_calories = []
+    week_strava_activities = []
+    week_lifting = []
 
     for day in all_days_list:
         
@@ -62,6 +65,13 @@ def main_page():
         if (float(allDays[day].calories) > 0): #50 steps if i used the fitbit 
             week_calories.append(float(allDays[day].calories))
 
+        if len(allDays[day].strava_activities) > 0:
+            for strava_activity in allDays[day].strava_activities:
+                week_strava_activities.append(strava_activity)
+
+        if len(allDays[day].lifting_sessions) > 0:
+            for lifting_session in allDays[day].lifting_sessions:
+                week_lifting.append(lifting_session)
 
         buf.write(str(allDays[day]) + '<br>')
         if (int_day == 0):
@@ -78,13 +88,40 @@ def main_page():
             if ((len(week_calories)) > 0):
                 week_avg_calories = sum(week_calories) / len(week_calories)
 
+            buf.write("---Stats<br>")
             buf.write("Week average BW: " + ("{:.2f}".format(week_avg_bw)) + 'kg<br>')
             buf.write("Week average steps: " + ("{:.0f}".format(week_avg_steps)) + '<br>')
             buf.write("Week average cals: " + ("{:.0f}".format(week_avg_calories)) + ' ({}/7)'.format(len(week_calories))+ '<br>')
+            
+            if len(week_strava_activities) > 0:
+                buf.write("---Strava Activities<br>")
+            
+            for strava_activity in week_strava_activities:
+                act_day = week_day_long[convert_ord_to_day_of_week(local_date_str_to_ordinal(strava_activity.strava_date, '%Y-%m-%dT%H:%M:%SZ'))]
+                pace = strava_activity.strava_time / 60 / strava_activity.strava_distance * 1000
+                pace_seconds = (pace % 1) * 60
+
+                buf.write(act_day + ': ' 
+                                  + str(strava_activity.strava_type) + " - "
+                                  + str(strava_activity.strava_description) + " "
+                                  + "{:.2f}".format(strava_activity.strava_distance/1000) + "km "
+                                  + str(datetime.timedelta(seconds=strava_activity.strava_time)) + ' - '
+                                  + str(int(pace)) + ':' + "{:.0f}".format(pace_seconds) + ' /km' '<br>')
+
+            if len(week_lifting) > 0:
+                buf.write("---Lifting Sessions<br>")
+
+            for lifting_session in week_lifting:
+                session_day = week_day_long[0]
+                buf.write(session_day + " " + str(lifting_session.lifting_duration) + " " + lifting_session.lifting_description + '<br>')
+
             buf.write('<br>')
+
             week_bws = []
             week_steps = []
             week_calories = []
+            week_strava_activities = []
+            week_lifting = []
 
 
     finish_time = arrow.utcnow()
@@ -169,7 +206,7 @@ def generate_all_days_data():
     data_tye = get_data_from_site(auth_urls['tye']['url'])[::-1]
     data_withings = get_data_withings(auth_urls['withings']['url'], {"Authorization": "Bearer {}".format(auth_urls['withings']['auth_token_dm'])})
     data_fitbit_step = get_step_data_fitbit(auth_urls['fitbit']['url_steps'], {"Authorization": "Bearer {}".format(auth_urls['fitbit']['access_token'])})[::-1]
-    
+        
     #data_fitbit_hr = get_hr_data_fitbit()
     #data_fitbit_sleep = get_hr_data_sleep()
     
@@ -237,6 +274,20 @@ def generate_all_days_data():
         except KeyError:
             print('key error fitbit steps')
             continue  
+
+    # Just a test to create one day of data
+    #data_liftmuch = [{'date': todays_date, 'time': 80 }]
+    data_liftmuch = []
+
+    #test populate liftmuch data
+    for data_entry in data_liftmuch:
+        this_day = data_entry['date']
+        temp_liftmuch_session = LiftingSession(data_entry['date'], "test session", data_entry['time'])
+        try:
+            allDays[this_day].lifting_sessions.append(temp_liftmuch_session)
+        except KeyError:
+            print('key error liftmuch')
+            continue
 
     return allDays
 
@@ -374,6 +425,7 @@ class OneDay(object):
         protein = 0, 
         fats = 0, 
         carbs = 0,
+        lifting_sessions = [],
         strava_activities = [], 
         liftmuch=False,
         steps = 0
@@ -386,6 +438,7 @@ class OneDay(object):
         self.fats = fats
         self.carbs = carbs
         self.strava_activities = []
+        self.lifting_sessions = []
         self.liftmuch = liftmuch
         self.steps = steps
 
@@ -396,9 +449,23 @@ class OneDay(object):
             + 'P: ' + str(self.protein) + " "
             + 'C: ' + str(self.carbs) + " "
             + 'F: ' + str(self.fats) + " "
-            + 'steps: ' + str(self.steps) + " " 
-            + "strava: " + str(len(self.strava_activities))
+            + 'steps: ' + str(self.steps)
             )
+
+class LiftingSession(object):
+    def __init__(self, 
+        lifting_date = date.toordinal(datetime.datetime.now()), 
+        lifting_description = "default_lifts",
+        lifting_duration = 0 #minutes 
+        ):
+
+        self.lifting_date = lifting_date
+        self.lifting_description = lifting_description
+        self.lifting_duration = lifting_duration
+
+    def __repr__(self):
+        return ("date: " + str(self.lifting_date) + ' ' + str(self.lifting_description))
+
 
 class StravaActivity(object):
     def __init__(self, 
