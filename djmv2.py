@@ -3,6 +3,7 @@ import arrow
 import boto3
 import math
 import datetime
+import json
 from datetime import date
 import collections
 from io import StringIO
@@ -22,7 +23,8 @@ def read_from_s3():
     s3 = boto3.client('s3')
     s3.download_file('djmio', 'current_full_page_djmio', '/tmp/test_page.html')
     file = open('/tmp/test_page.html', 'r')
-    html_string = (file.read() )
+    html_string = (file.read())
+    file.close()
     return html_string
 
 @app.route("/w")
@@ -30,7 +32,8 @@ def read_from_s3weekly():
     s3 = boto3.client('s3')
     s3.download_file('djmio', 'current_weekly_page_djmio', '/tmp/test_page.html')
     file = open('/tmp/test_page.html', 'r')
-    html_string = (file.read() )
+    html_string = (file.read())
+    file.close()
     return html_string
 
 @app.route("/daily")
@@ -112,8 +115,8 @@ def main_page():
                 buf.write("---Lifting Sessions<br>")
 
             for lifting_session in week_lifting:
-                session_day = week_day_long[0]
-                buf.write(session_day + " " + str(lifting_session.lifting_duration) + " " + lifting_session.lifting_description + '<br>')
+                session_day = week_day_long[convert_ord_to_day_of_week(local_date_str_to_ordinal(lifting_session.lifting_date, '%Y-%m-%d'))] 
+                buf.write(session_day + " - " + lifting_session.lifting_description + '<br>')
 
             buf.write('<br>')
 
@@ -147,6 +150,8 @@ def weekly_page():
     week_bws = []
     week_steps = []
     week_calories = []
+    num_liftingsessions = 0
+    num_strava = 0
 
     for day in all_days_list:
         
@@ -161,6 +166,12 @@ def weekly_page():
         if (float(allDays[day].calories) > 0): #50 steps if i used the fitbit 
             week_calories.append(float(allDays[day].calories))
 
+        # Counting Strava and Lifting sessions
+        if len(allDays[day].lifting_sessions) > 0:
+            num_liftingsessions += 1
+
+        if len(allDays[day].strava_activities) > 0:
+            num_strava += 1
 
         #buf.write(str(allDays[day]) + '<br>')
         if (int_day == 0):
@@ -178,13 +189,18 @@ def weekly_page():
             if ((len(week_calories)) > 0):
                 week_avg_calories = sum(week_calories) / len(week_calories)
 
-            buf.write("Week average BW: " + ("{:.2f}".format(week_avg_bw)) + 'kg - ')
-            buf.write("Week average steps: " + ("{:.0f}".format(week_avg_steps)) + ' - ')
-            buf.write("Week average cals: " + ("{:.0f}".format(week_avg_calories)) + ' ({}/7)'.format(len(week_calories)))
+            buf.write("Avg BW: " + ("{:.2f}".format(week_avg_bw)) + 'kg - ')
+            buf.write("Avg steps: " + ("{:.0f}".format(week_avg_steps)) + ' - ')
+            buf.write("Avg cals: " + ("{:.0f}".format(week_avg_calories)) + ' ({}/7)'.format(len(week_calories)) +' ')
+            buf.write("L:" + str(num_liftingsessions) + ' ')
+            buf.write("S:" + str(num_strava) + ' ')
             buf.write('<br>')
+
             week_bws = []
             week_steps = []
             week_calories = []
+            num_liftingsessions = 0
+            num_strava = 0
 
     save_html_to_s3(buf.getvalue(),'current_weekly_page_djmio')
 
@@ -206,7 +222,8 @@ def generate_all_days_data():
     data_tye = get_data_from_site(auth_urls['tye']['url'])[::-1]
     data_withings = get_data_withings(auth_urls['withings']['url'], {"Authorization": "Bearer {}".format(auth_urls['withings']['auth_token_dm'])})
     data_fitbit_step = get_step_data_fitbit(auth_urls['fitbit']['url_steps'], {"Authorization": "Bearer {}".format(auth_urls['fitbit']['access_token'])})[::-1]
-        
+    data_liftmuch = get_liftmuch_data()    
+
     #data_fitbit_hr = get_hr_data_fitbit()
     #data_fitbit_sleep = get_hr_data_sleep()
     
@@ -275,18 +292,25 @@ def generate_all_days_data():
             print('key error fitbit steps')
             continue  
 
-    # Just a test to create one day of data
-    #data_liftmuch = [{'date': todays_date, 'time': 80 }]
-    data_liftmuch = []
+    #Populate liftmuch data - currently won't list entries without a time listed
+    for data_entry in data_liftmuch['workouts']:
+        this_day = local_date_str_to_ordinal(data_entry['date'], '%Y-%m-%d')
 
-    #test populate liftmuch data
-    for data_entry in data_liftmuch:
-        this_day = data_entry['date']
-        temp_liftmuch_session = LiftingSession(data_entry['date'], "test session", data_entry['time'])
+        print(this_day)
+        try:
+            time_str = data_entry['extra_info']['notes'].split('Time')[-1].strip()
+            time_mins = (int(time_str.split(':')[0]) * 60) + int(time_str.split(':')[1])
+            print(data_entry['date'])
+
+            temp_liftmuch_session = LiftingSession(data_entry['date'], data_entry['extra_info']['notes'], time_mins)
+        except Exception as e:
+            continue
+        
+        # Convert liftmuch date to allDay's date
         try:
             allDays[this_day].lifting_sessions.append(temp_liftmuch_session)
         except KeyError:
-            print('key error liftmuch')
+            print('date not in scope')
             continue
 
     return allDays
@@ -385,6 +409,15 @@ def get_step_data_fitbit(url, headers):
     resp_json = resp_json['activities-steps']
     finish_time = arrow.utcnow()
     print(str(finish_time - start_time) + " " + url.split('/')[2] + " items: " + str(len(resp_json)))
+    return resp_json
+
+# Test function retrieving static version from S3 - will be replaced with proper copy later
+def get_liftmuch_data():
+    s3 = boto3.client('s3')
+    s3.download_file('djmio', 'sept15_liftmuch.json', '/tmp/liftmuch.json')
+    file = open('/tmp/liftmuch.json', 'r')
+    resp_json = json.load(file)
+    file.close()
     return resp_json
 
 def epoch_to_local_time(epoch_time):
