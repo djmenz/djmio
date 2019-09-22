@@ -109,7 +109,7 @@ def main_page():
                                   + str(strava_activity.strava_description) + " "
                                   + "{:.2f}".format(strava_activity.strava_distance/1000) + "km "
                                   + str(datetime.timedelta(seconds=strava_activity.strava_time)) + ' - '
-                                  + str(int(pace)) + ':' + "{:.0f}".format(pace_seconds) + ' /km' '<br>')
+                                  + str(int(pace)) + ':' + ("{:.0f}".format(pace_seconds)).zfill(2) + ' /km' '<br>')
 
             if len(week_lifting) > 0:
                 buf.write("---Lifting Sessions<br>")
@@ -191,7 +191,7 @@ def weekly_page():
 
             buf.write("Avg BW: " + ("{:.2f}".format(week_avg_bw)) + 'kg - ')
             buf.write("Avg steps: " + ("{:.0f}".format(week_avg_steps)) + ' - ')
-            buf.write("Avg cals: " + ("{:.0f}".format(week_avg_calories)) + ' ({}/7)'.format(len(week_calories)) +' ')
+            buf.write("Avg cals: " + ("{:.0f}".format(week_avg_calories)) + ' ({}/7)'.format(len(week_calories)) + ' ')
             buf.write("L:" + str(num_liftingsessions) + ' ')
             buf.write("S:" + str(num_strava) + ' ')
             buf.write('<br>')
