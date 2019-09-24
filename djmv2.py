@@ -13,6 +13,8 @@ from flask import request
 from flask import render_template
 from requests.auth import HTTPBasicAuth
 
+import djm_utils
+
 week_day = ['M','T','W','T','F','S','S']
 week_day_long = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 
@@ -100,7 +102,7 @@ def main_page():
                 buf.write("---Strava Activities<br>")
             
             for strava_activity in week_strava_activities:
-                act_day = week_day_long[convert_ord_to_day_of_week(local_date_str_to_ordinal(strava_activity.strava_date, '%Y-%m-%dT%H:%M:%SZ'))]
+                act_day = week_day_long[convert_ord_to_day_of_week(djm_utils.local_date_str_to_ordinal(strava_activity.strava_date, '%Y-%m-%dT%H:%M:%SZ'))]
                 pace = strava_activity.strava_time / 60 / strava_activity.strava_distance * 1000
                 pace_seconds = (pace % 1) * 60
 
@@ -115,7 +117,7 @@ def main_page():
                 buf.write("---Lifting Sessions<br>")
 
             for lifting_session in week_lifting:
-                session_day = week_day_long[convert_ord_to_day_of_week(local_date_str_to_ordinal(lifting_session.lifting_date, '%Y-%m-%d'))] 
+                session_day = week_day_long[convert_ord_to_day_of_week(djm_utils.local_date_str_to_ordinal(lifting_session.lifting_date, '%Y-%m-%d'))] 
                 buf.write(session_day + " - " + lifting_session.lifting_description + '<br>')
 
             buf.write('<br>')
@@ -228,7 +230,7 @@ def generate_all_days_data():
     #data_fitbit_sleep = get_hr_data_sleep()
     
     #First day of 2018 instead 
-    earliest_date = local_date_str_to_ordinal('01-01-2018', '%d-%m-%Y')
+    earliest_date = djm_utils.local_date_str_to_ordinal('01-01-2018', '%d-%m-%Y')
     todays_date_epoch = int(datetime.datetime.now().timestamp())
     todays_date = date.toordinal(datetime.datetime.fromtimestamp(todays_date_epoch))
 
@@ -240,7 +242,7 @@ def generate_all_days_data():
 
     # populate strava data
     for date_entry in data_strava:
-        this_day =  epoch_to_ordinal(local_date_str_to_epoch(date_entry['start_date_local'],'%Y-%m-%dT%H:%M:%SZ'))
+        this_day =  djm_utils.epoch_to_ordinal(djm_utils.local_date_str_to_epoch(date_entry['start_date_local'],'%Y-%m-%dT%H:%M:%SZ'))
         temp_strava_activity = StravaActivity(
             strava_date = date_entry['start_date_local'], 
             strava_description = date_entry['name'], 
@@ -258,7 +260,7 @@ def generate_all_days_data():
 
     # populate tye data
     for data_entry in data_tye:
-        this_day = local_date_str_to_ordinal(data_entry['date'], '%Y-%m-%d')
+        this_day = djm_utils.local_date_str_to_ordinal(data_entry['date'], '%Y-%m-%d')
         try:
             allDays[this_day].carbs = data_entry['carbs']
             allDays[this_day].calories = data_entry['calories']
@@ -270,12 +272,12 @@ def generate_all_days_data():
 
     #populate withings data
     for data_entry in data_withings:
-        this_day = epoch_to_ordinal(data_entry['date'])
+        this_day = djm_utils.epoch_to_ordinal(data_entry['date'])
         try:
             t_weight = data_entry['measures'][0]['value']
             t_unit = data_entry['measures'][0]['unit']
             t_date = data_entry['date']
-            t_date_human = epoch_to_local_time(t_date)
+            t_date_human = djm_utils.epoch_to_local_time(t_date)
             tempweight = ("%.2f" % (t_weight/math.pow(10,-t_unit)))
             allDays[this_day].bodyweight = tempweight
         except KeyError:
@@ -284,7 +286,7 @@ def generate_all_days_data():
 
     #populate fitbit-step data
     for data_entry in data_fitbit_step:
-        this_day = local_date_str_to_ordinal(data_entry['dateTime'], '%Y-%m-%d')
+        this_day = djm_utils.local_date_str_to_ordinal(data_entry['dateTime'], '%Y-%m-%d')
         try:
             temp_steps = data_entry['value']
             allDays[this_day].steps = temp_steps
@@ -294,7 +296,7 @@ def generate_all_days_data():
 
     #Populate liftmuch data - currently won't list entries without a time listed
     for data_entry in data_liftmuch['workouts']:
-        this_day = local_date_str_to_ordinal(data_entry['date'], '%Y-%m-%d')
+        this_day = djm_utils.local_date_str_to_ordinal(data_entry['date'], '%Y-%m-%d')
 
         print(this_day)
         try:
@@ -384,10 +386,6 @@ def refresh_fitbit_token():
                 )
     return
 
-def convert_ord_to_day_of_week(ordinal):
-    day_of_week_int = date.fromordinal(ordinal).weekday()
-    return day_of_week_int
-
 def get_data_from_site(url):
     start_time = arrow.utcnow()
     resp_json = requests.get(url).json()
@@ -420,27 +418,10 @@ def get_liftmuch_data():
     file.close()
     return resp_json
 
-def epoch_to_local_time(epoch_time):
-    date = datetime.datetime.fromtimestamp(epoch_time).strftime('%d-%m-%Y')
-    return date
-
-def epoch_to_ordinal(epoch_time):
-    ordinal = date.toordinal(datetime.datetime.fromtimestamp(epoch_time))
-    return ordinal
-
-def ordinal_to_str(ordinal):
-    date_str = date.fromordinal(ordinal).strftime('%d-%m-%Y')
-    return date_str
-
-def local_date_str_to_epoch(strdate, date_string):
-    datetime_object = datetime.datetime.strptime(strdate, date_string)
-    timestamp = datetime.datetime.timestamp(datetime_object)
-    return timestamp
-
-def local_date_str_to_ordinal(strdate, date_string):
-    datetime_object = datetime.datetime.strptime(strdate, date_string).date()
-    ordinal = date.toordinal(datetime_object)
-    return ordinal
+# To move to djm_utils
+def convert_ord_to_day_of_week(ordinal):
+    day_of_week_int = date.fromordinal(ordinal).weekday()
+    return day_of_week_int
 
 def save_html_to_s3(full_html_page, object_name):
     s3 = boto3.resource('s3')
@@ -476,7 +457,7 @@ class OneDay(object):
         self.steps = steps
 
     def __repr__(self):
-        return (week_day[convert_ord_to_day_of_week(self.date)] + " " + ordinal_to_str(self.date) + " "
+        return (week_day[convert_ord_to_day_of_week(self.date)] + " " + djm_utils.ordinal_to_str(self.date) + " "
             + 'bw: ' + str(self.bodyweight) + " " 
             + 'cals: ' + str(self.calories) + " " 
             + 'P: ' + str(self.protein) + " "
