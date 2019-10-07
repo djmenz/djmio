@@ -105,13 +105,15 @@ def main_page():
                 act_day = week_day_long[convert_ord_to_day_of_week(djm_utils.local_date_str_to_ordinal(strava_activity.strava_date, '%Y-%m-%dT%H:%M:%SZ'))]
                 pace = strava_activity.strava_time / 60 / strava_activity.strava_distance * 1000
                 pace_seconds = (pace % 1) * 60
+                pace_seconds_str = ("{:.0f}".format(pace_seconds))
+                pace_seconds_str = pace_seconds_str.zfill(2)
 
                 buf.write(act_day + ': ' 
                                   + str(strava_activity.strava_type) + " - "
                                   + str(strava_activity.strava_description) + " "
                                   + "{:.2f}".format(strava_activity.strava_distance/1000) + "km "
                                   + str(datetime.timedelta(seconds=strava_activity.strava_time)) + ' - '
-                                  + str(int(pace)) + ':' + ("{:.0f}".format(pace_seconds)).zfill(2) + ' /km' '<br>')
+                                  + str(int(pace)) + ':' + pace_seconds_str + ' /km' '<br>')
 
             if len(week_lifting) > 0:
                 buf.write("---Lifting Sessions<br>")
@@ -298,11 +300,11 @@ def generate_all_days_data():
     for data_entry in data_liftmuch['workouts']:
         this_day = djm_utils.local_date_str_to_ordinal(data_entry['date'], '%Y-%m-%d')
 
-        print(this_day)
+        #print(this_day)
         try:
             time_str = data_entry['extra_info']['notes'].split('Time')[-1].strip()
             time_mins = (int(time_str.split(':')[0]) * 60) + int(time_str.split(':')[1])
-            print(data_entry['date'])
+            #print(data_entry['date'])
 
             temp_liftmuch_session = LiftingSession(data_entry['date'], data_entry['extra_info']['notes'], time_mins)
         except Exception as e:
