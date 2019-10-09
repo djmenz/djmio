@@ -222,9 +222,9 @@ def generate_all_days_data():
 
     auth_urls = get_user_data()
 
-    data_strava = get_data_from_site(auth_urls['strava']['url'] + auth_urls['strava']['access_token'])
-    data_tye = get_data_from_site(auth_urls['tye']['url'])[::-1]
-    data_withings = get_data_withings(auth_urls['withings']['url'], {"Authorization": "Bearer {}".format(auth_urls['withings']['auth_token_dm'])})
+#    data_strava = get_data_from_site(auth_urls['strava']['url'] + auth_urls['strava']['access_token'])
+#    data_tye = get_data_from_site(auth_urls['tye']['url'])[::-1]
+#    data_withings = get_data_withings(auth_urls['withings']['url'], {"Authorization": "Bearer {}".format(auth_urls['withings']['auth_token_dm'])})
     data_fitbit_step = get_step_data_fitbit(auth_urls['fitbit']['url_steps'], {"Authorization": "Bearer {}".format(auth_urls['fitbit']['access_token'])})[::-1]
     data_liftmuch = get_liftmuch_data()    
 
