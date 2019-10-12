@@ -11,6 +11,10 @@ from io import StringIO
 from flask import Flask
 from flask import request
 from flask import render_template
+from flask import redirect
+from flask import url_for
+from flask import send_file
+
 from requests.auth import HTTPBasicAuth
 
 import djm_utils
@@ -29,6 +33,10 @@ def read_from_s3():
     file.close()
     return html_string
 
+@app.route("/d")
+def read_from_s3_d():
+    return redirect(url_for('read_from_s3'))
+
 @app.route("/w")
 def read_from_s3weekly():
     s3 = boto3.client('s3')
@@ -38,7 +46,12 @@ def read_from_s3weekly():
     file.close()
     return html_string
 
-@app.route("/daily")
+@app.route("/bw")
+def read_from_bw_image():
+    filename = 'bw_years.png'
+    return send_file(filename, mimetype='image/gif')
+
+@app.route("/daily_gen")
 def main_page():
 
     start_time = arrow.utcnow()
@@ -59,7 +72,7 @@ def main_page():
 
     for day in all_days_list:
         
-        int_day = convert_ord_to_day_of_week(allDays[day].date)
+        int_day = djm_utils.convert_ord_to_day_of_week(allDays[day].date)
 
         if (float(allDays[day].bodyweight) > float(0.0)):
             week_bws.append(float(allDays[day].bodyweight))
@@ -102,7 +115,7 @@ def main_page():
                 buf.write("---Strava Activities<br>")
             
             for strava_activity in week_strava_activities:
-                act_day = week_day_long[convert_ord_to_day_of_week(djm_utils.local_date_str_to_ordinal(strava_activity.strava_date, '%Y-%m-%dT%H:%M:%SZ'))]
+                act_day = week_day_long[djm_utils.convert_ord_to_day_of_week(djm_utils.local_date_str_to_ordinal(strava_activity.strava_date, '%Y-%m-%dT%H:%M:%SZ'))]
                 pace = strava_activity.strava_time / 60 / strava_activity.strava_distance * 1000
                 pace_seconds = (pace % 1) * 60
                 pace_seconds_str = ("{:.0f}".format(pace_seconds))
@@ -119,7 +132,7 @@ def main_page():
                 buf.write("---Lifting Sessions<br>")
 
             for lifting_session in week_lifting:
-                session_day = week_day_long[convert_ord_to_day_of_week(djm_utils.local_date_str_to_ordinal(lifting_session.lifting_date, '%Y-%m-%d'))] 
+                session_day = week_day_long[djm_utils.convert_ord_to_day_of_week(djm_utils.local_date_str_to_ordinal(lifting_session.lifting_date, '%Y-%m-%d'))] 
                 buf.write(session_day + " - " + lifting_session.lifting_description + '<br>')
 
             buf.write('<br>')
@@ -141,7 +154,7 @@ def main_page():
     return buf.getvalue()
 
 
-@app.route("/weekly")
+@app.route("/weekly_gen")
 def weekly_page():
     buf = StringIO()
     buf.write("DJM.IO<br><br>")
@@ -155,11 +168,14 @@ def weekly_page():
     week_steps = []
     week_calories = []
     num_liftingsessions = 0
+    duration_liftingsessions = 0
     num_strava = 0
+    strava_dist_running = 0
+    strava_dist_riding = 0
 
     for day in all_days_list:
         
-        int_day = convert_ord_to_day_of_week(allDays[day].date)
+        int_day = djm_utils.convert_ord_to_day_of_week(allDays[day].date)
 
         if (float(allDays[day].bodyweight) > float(0.0)):
             week_bws.append(float(allDays[day].bodyweight))
@@ -172,10 +188,18 @@ def weekly_page():
 
         # Counting Strava and Lifting sessions
         if len(allDays[day].lifting_sessions) > 0:
-            num_liftingsessions += 1
+            for lifting_session in (allDays[day].lifting_sessions):
+                duration_liftingsessions += lifting_session.lifting_duration
+            num_liftingsessions += len(allDays[day].lifting_sessions)
 
         if len(allDays[day].strava_activities) > 0:
-            num_strava += 1
+            for strava_activity in (allDays[day].strava_activities):
+                if strava_activity.strava_type == 'Run':
+                    strava_dist_running += strava_activity.strava_distance
+                if strava_activity.strava_type == 'Ride':
+                    strava_dist_riding += strava_activity.strava_distance
+
+            num_strava += len(allDays[day].strava_activities) 
 
         #buf.write(str(allDays[day]) + '<br>')
         if (int_day == 0):
@@ -196,15 +220,19 @@ def weekly_page():
             buf.write("Avg BW: " + ("{:.2f}".format(week_avg_bw)) + 'kg - ')
             buf.write("Avg steps: " + ("{:.0f}".format(week_avg_steps)) + ' - ')
             buf.write("Avg cals: " + ("{:.0f}".format(week_avg_calories)) + ' ({}/7)'.format(len(week_calories)) + ' ')
-            buf.write("L:" + str(num_liftingsessions) + ' ')
-            buf.write("S:" + str(num_strava) + ' ')
+            buf.write("L:" + str(num_liftingsessions) + ' (' + djm_utils.convert_mins_to_hrmins_str(duration_liftingsessions) + ') ')
+            buf.write("S:" + str(num_strava) + " (Run " + "{:.1f}".format(strava_dist_running/1000) 
+                           + "km " + " Ride " + "{:.1f}".format(strava_dist_riding/1000) + "km " + ")")
             buf.write('<br>')
 
             week_bws = []
             week_steps = []
             week_calories = []
             num_liftingsessions = 0
+            duration_liftingsessions= 0
             num_strava = 0
+            strava_dist_running = 0
+            strava_dist_riding = 0
 
     save_html_to_s3(buf.getvalue(),'current_weekly_page_djmio')
 
@@ -222,16 +250,39 @@ def generate_all_days_data():
 
     auth_urls = get_user_data()
 
-#    data_strava = get_data_from_site(auth_urls['strava']['url'] + auth_urls['strava']['access_token'])
-#    data_tye = get_data_from_site(auth_urls['tye']['url'])[::-1]
-#    data_withings = get_data_withings(auth_urls['withings']['url'], {"Authorization": "Bearer {}".format(auth_urls['withings']['auth_token_dm'])})
-    data_fitbit_step = get_step_data_fitbit(auth_urls['fitbit']['url_steps'], {"Authorization": "Bearer {}".format(auth_urls['fitbit']['access_token'])})[::-1]
-    data_liftmuch = get_liftmuch_data()    
+    try:
+        data_strava = get_data_from_site(auth_urls['strava']['url'] + auth_urls['strava']['access_token'])
+    except:
+        data_strava = []
+
+    #try:
+    #    data_tye = get_data_from_site(auth_urls['tye']['url'])[::-1]
+    #except:
+    data_tye = []
+    
+    try:
+        data_withings = get_data_withings(auth_urls['withings']['url'], {"Authorization": "Bearer {}".format(auth_urls['withings']['auth_token_dm'])})
+    except:
+        data_withings = []
+
+    try:
+        data_fitbit_step = get_step_data_fitbit(auth_urls['fitbit']['url_steps'], {"Authorization": "Bearer {}".format(auth_urls['fitbit']['access_token'])})[::-1]
+    except:
+        data_fitbit_step = []
+
+    try:
+        data_liftmuch = get_liftmuch_data()    
+    except:
+        data_liftmuch = []
 
     #data_fitbit_hr = get_hr_data_fitbit()
     #data_fitbit_sleep = get_hr_data_sleep()
+
+
+
+    start_time = arrow.utcnow()
     
-    #First day of 2018 instead 
+    #First day of 2018 
     earliest_date = djm_utils.local_date_str_to_ordinal('01-01-2018', '%d-%m-%Y')
     todays_date_epoch = int(datetime.datetime.now().timestamp())
     todays_date = date.toordinal(datetime.datetime.fromtimestamp(todays_date_epoch))
@@ -297,26 +348,41 @@ def generate_all_days_data():
             continue  
 
     #Populate liftmuch data - currently won't list entries without a time listed
-    for data_entry in data_liftmuch['workouts']:
+    try:
+        data_liftmuch = data_liftmuch['workouts']
+    except:
+        data_liftmuch = []
+
+
+    for data_entry in data_liftmuch:
         this_day = djm_utils.local_date_str_to_ordinal(data_entry['date'], '%Y-%m-%d')
 
-        #print(this_day)
+        # If time isn't in format 'xyz Time x:xx; set it to default 60 minutes
+        sess_time_mins = 60
+        sess_description = "No details"
+
         try:
             time_str = data_entry['extra_info']['notes'].split('Time')[-1].strip()
-            time_mins = (int(time_str.split(':')[0]) * 60) + int(time_str.split(':')[1])
-            #print(data_entry['date'])
-
-            temp_liftmuch_session = LiftingSession(data_entry['date'], data_entry['extra_info']['notes'], time_mins)
+            sess_time_mins = (int(time_str.split(':')[0]) * 60) + int(time_str.split(':')[1])        
         except Exception as e:
-            continue
+            pass        
         
+        try:
+            sess_description = data_entry['extra_info']['notes']        
+        except Exception as e:
+            pass        
+
         # Convert liftmuch date to allDay's date
         try:
+            temp_liftmuch_session = LiftingSession(data_entry['date'], sess_description, sess_time_mins)
             allDays[this_day].lifting_sessions.append(temp_liftmuch_session)
-        except KeyError:
-            print('date not in scope')
+        except Exception as e:
+            #print(data_entry['date'])
+            #print('date not in bounds of display\n ')
             continue
 
+    finish_time = arrow.utcnow()
+    print(str(finish_time - start_time) + " consolidating all data" )
     return allDays
 
 
@@ -420,11 +486,6 @@ def get_liftmuch_data():
     file.close()
     return resp_json
 
-# To move to djm_utils
-def convert_ord_to_day_of_week(ordinal):
-    day_of_week_int = date.fromordinal(ordinal).weekday()
-    return day_of_week_int
-
 def save_html_to_s3(full_html_page, object_name):
     s3 = boto3.resource('s3')
     s3.Bucket('djmio').put_object(Key=object_name, Body=full_html_page)
@@ -459,7 +520,7 @@ class OneDay(object):
         self.steps = steps
 
     def __repr__(self):
-        return (week_day[convert_ord_to_day_of_week(self.date)] + " " + djm_utils.ordinal_to_str(self.date) + " "
+        return (week_day[djm_utils.convert_ord_to_day_of_week(self.date)] + " " + djm_utils.ordinal_to_str(self.date) + " "
             + 'bw: ' + str(self.bodyweight) + " " 
             + 'cals: ' + str(self.calories) + " " 
             + 'P: ' + str(self.protein) + " "

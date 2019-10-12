@@ -19,7 +19,8 @@ def epoch_to_local_time_yy(epoch_time):
     return date
 
 def main():
-
+    output_file_name = 'bw_years.png'
+    
     djmv2.refresh_withings_token()
     auth_urls = djmv2.get_user_data()
 
@@ -44,12 +45,36 @@ def main():
             print('key error withings')
             continue   
 
+    #Adding manual old entries
+    #import pdb; pdb.set_trace() 
+    manual_data = [
+        ['2012-04-29', 80.5],
+        ['2012-06-24', 82.2],
+        ['2012-11-09', 89.2],
+        ['2013-03-10', 83.9],
+        ['2013-06-14', 81.0],
+        ['2014-03-09', 81.6],
+        ['2014-06-05', 80.9],
+        ['2014-12-03', 78.42],
+        ['2015-02-01', 73.9],
+        ['2015-05-19', 78.4],
+        ['2015-10-17', 78.0],
+        ['2016-10-23', 73.8]                                                
+    ]
+
+    #clean_data = manual_data + clean_data
+
     date_list,bw_list = zip(*clean_data)
+
+
 
     dates = [pd.to_datetime(d) for d in date_list]
 
+
     x_var = dates
     y_var = bw_list
+
+    
 
     fig, ax = plt.subplots(1,1)
     
@@ -73,7 +98,7 @@ def main():
 
     fig = matplotlib.pyplot.gcf()
     fig.set_size_inches(18.5, 10.5)
-    plt.savefig('bw_years.png',bbox_inches='tight')
+    plt.savefig(output_file_name,bbox_inches='tight')
 
     s3 = boto3.resource('s3')
     file_loc = 'bw_years.png'

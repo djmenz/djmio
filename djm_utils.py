@@ -27,3 +27,7 @@ def local_date_str_to_ordinal(strdate, date_string):
 def convert_ord_to_day_of_week(ordinal):
     day_of_week_int = date.fromordinal(ordinal).weekday()
     return day_of_week_int
+
+def convert_mins_to_hrmins_str(minutes):
+    mins =  ("{:.0f}".format(minutes%60)).zfill(2)
+    return (str(int(minutes/60)) + ":" + mins)
