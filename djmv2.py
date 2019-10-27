@@ -7,6 +7,7 @@ import json
 from datetime import date
 import collections
 from io import StringIO
+from multiprocessing import Process
 
 from flask import Flask
 from flask import request
@@ -49,7 +50,7 @@ def read_from_s3weekly():
 @app.route("/bw")
 def read_from_bw_image():
     filename = 'bw_years.png'
-    return send_file(filename, mimetype='image/gif')
+    return send_file(filename, cache_timeout=app.config['FILE_DOWNLOAD_CACHE_TIMEOUT'], mimetype='image/gif')
 
 @app.route("/daily_gen")
 def main_page():
@@ -247,13 +248,21 @@ def generate_all_days_data():
     # Get all the user data from each service
     refresh_withings_token()
     refresh_fitbit_token()
+    refresh_strava_token()
 
     auth_urls = get_user_data()
 
     try:
+        #data_strava = []
         data_strava = get_data_from_site(auth_urls['strava']['url'] + auth_urls['strava']['access_token'])
     except:
         data_strava = []
+
+    try:
+        if (data_strava['message'] == 'Authorization Error'):
+            data_strava = []
+    except:
+        pass
 
     #try:
     #    data_tye = get_data_from_site(auth_urls['tye']['url'])[::-1]
@@ -277,9 +286,6 @@ def generate_all_days_data():
 
     #data_fitbit_hr = get_hr_data_fitbit()
     #data_fitbit_sleep = get_hr_data_sleep()
-
-
-
     start_time = arrow.utcnow()
     
     #First day of 2018 
@@ -386,6 +392,8 @@ def generate_all_days_data():
     return allDays
 
 
+
+
 def get_user_data():
     dynamodb = boto3.resource('dynamodb', region_name='ap-southeast-2')
     table = dynamodb.Table('djmio_platform_urls')
@@ -429,6 +437,7 @@ def refresh_fitbit_token():
     auth_urls = get_user_data()
     
     url_refresh_token = auth_urls['fitbit']['url_refresh_token']
+
     url_steps = auth_urls['fitbit']['url_steps']
     client_id = auth_urls['fitbit']['client_id']
     client_secret = auth_urls['fitbit']['client_secret']
@@ -452,6 +461,9 @@ def refresh_fitbit_token():
                         'url_steps': url_steps,
                     },
                 )
+    return
+
+def refresh_strava_token():
     return
 
 def get_data_from_site(url):
