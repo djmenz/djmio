@@ -409,7 +409,9 @@ def refresh_withings_token():
     dynamodb = boto3.resource('dynamodb', region_name='ap-southeast-2')
     table = dynamodb.Table('djmio_platform_urls')
     auth_urls = get_user_data()
+    
     url = auth_urls['withings']['url_refresh_token']
+    
     url_api = auth_urls['withings']['url']
     client_id = auth_urls['withings']['client_id']
     client_secret = auth_urls['withings']['client_secret']
@@ -464,6 +466,31 @@ def refresh_fitbit_token():
     return
 
 def refresh_strava_token():
+    dynamodb = boto3.resource('dynamodb', region_name='ap-southeast-2')
+    table = dynamodb.Table('djmio_platform_urls')
+    auth_urls = get_user_data()
+    
+    url = auth_urls['strava']['url_refresh_token']
+    
+    url_api = auth_urls['strava']['url']
+    client_id = auth_urls['strava']['client_id']
+    client_secret = auth_urls['strava']['client_secret']
+    refresh_token = auth_urls['strava']['refresh_token']
+    data = {'client_id': client_id, 'grant_type': 'refresh_token', 'client_secret': client_secret, 'refresh_token': refresh_token }
+    resp_json = requests.post(url=url, data=data).json()
+    print("strava token refreshed")
+
+    table.put_item(
+                    Item={
+                        'platform': 'strava',
+                        'refresh_token': resp_json['refresh_token'],
+                        'access_token': resp_json['access_token'],
+                        'url_refresh_token': url,
+                        'url': url_api,
+                        'client_id': client_id,
+                        'client_secret': client_secret,
+                    },
+                )
     return
 
 def get_data_from_site(url):
