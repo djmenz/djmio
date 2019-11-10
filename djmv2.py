@@ -246,10 +246,10 @@ def generate_all_days_data():
     allDays = collections.OrderedDict()
 
     # Get all the user data from each service
-    refresh_withings_token()
-    refresh_fitbit_token()
-    refresh_strava_token()
-
+    refresh_token_misc('withings')
+    refresh_token_misc('strava')
+    refresh_token_misc('fitbit')
+    
     auth_urls = get_user_data()
 
     try:
@@ -270,12 +270,12 @@ def generate_all_days_data():
     data_tye = []
     
     try:
-        data_withings = get_data_withings(auth_urls['withings']['url'], {"Authorization": "Bearer {}".format(auth_urls['withings']['auth_token_dm'])})
+        data_withings = get_data_withings(auth_urls['withings']['url'], {"Authorization": "Bearer {}".format(auth_urls['withings']['access_token'])})
     except:
         data_withings = []
 
     try:
-        data_fitbit_step = get_step_data_fitbit(auth_urls['fitbit']['url_steps'], {"Authorization": "Bearer {}".format(auth_urls['fitbit']['access_token'])})[::-1]
+        data_fitbit_step = get_step_data_fitbit(auth_urls['fitbit']['url'], {"Authorization": "Bearer {}".format(auth_urls['fitbit']['access_token'])})[::-1]
     except:
         data_fitbit_step = []
 
@@ -391,9 +391,6 @@ def generate_all_days_data():
     print(str(finish_time - start_time) + " consolidating all data" )
     return allDays
 
-
-
-
 def get_user_data():
     dynamodb = boto3.resource('dynamodb', region_name='ap-southeast-2')
     table = dynamodb.Table('djmio_platform_urls')
@@ -405,84 +402,36 @@ def get_user_data():
 
     return(platform_auth)
 
-def refresh_withings_token():
+
+def refresh_token_misc(platform):
     dynamodb = boto3.resource('dynamodb', region_name='ap-southeast-2')
     table = dynamodb.Table('djmio_platform_urls')
     auth_urls = get_user_data()
     
-    url = auth_urls['withings']['url_refresh_token']
-    
-    url_api = auth_urls['withings']['url']
-    client_id = auth_urls['withings']['client_id']
-    client_secret = auth_urls['withings']['client_secret']
-    refresh_token = auth_urls['withings']['refresh_token_dm']
-    data = {'client_id': client_id, 'grant_type': 'refresh_token', 'client_secret': client_secret, 'refresh_token': refresh_token }
-    resp_json = requests.post(url=url, data=data).json()
-    print("withings token refreshed")
+    #this can be removed when its a database patch call
+    url = auth_urls[platform]['url_refresh_token']
+    url_api = auth_urls[platform]['url']
+    client_id = auth_urls[platform]['client_id']
+    client_secret = auth_urls[platform]['client_secret']
 
+    refresh_token = auth_urls[platform]['refresh_token']
+
+    if platform == 'fitbit':
+        headers = HTTPBasicAuth(client_id, client_secret)
+        data = {'grant_type': 'refresh_token', 'refresh_token': refresh_token }
+        resp_json = requests.post(url=url, auth=HTTPBasicAuth(client_id, client_secret), data=data).json()
+    else:
+        data = {'client_id': client_id, 'grant_type': 'refresh_token', 'client_secret': client_secret, 'refresh_token': refresh_token }
+        resp_json = requests.post(url=url, data=data).json()
+
+    print(platform + " token refreshed")
+
+    # Change to patch just these 2 attributes, then don't need to store above:
+    # - refresh_token
+    # - access_token
     table.put_item(
                     Item={
-                        'platform': 'withings',
-                        'refresh_token_dm': resp_json['refresh_token'],
-                        'auth_token_dm': resp_json['access_token'],
-                        'url_refresh_token': url,
-                        'url': url_api,
-                        'client_id': client_id,
-                        'client_secret': client_secret,
-                    },
-                )
-    return
-
-def refresh_fitbit_token():
-    dynamodb = boto3.resource('dynamodb', region_name='ap-southeast-2')
-    table = dynamodb.Table('djmio_platform_urls')
-    auth_urls = get_user_data()
-    
-    url_refresh_token = auth_urls['fitbit']['url_refresh_token']
-
-    url_steps = auth_urls['fitbit']['url_steps']
-    client_id = auth_urls['fitbit']['client_id']
-    client_secret = auth_urls['fitbit']['client_secret']
-    refresh_token = auth_urls['fitbit']['refresh_token']
-    access_token = auth_urls['fitbit']['access_token']
-
-    headers = HTTPBasicAuth(client_id, client_secret)
-    data = {'grant_type': 'refresh_token', 'refresh_token': refresh_token }
-    
-    resp_json = requests.post(url=url_refresh_token, auth=HTTPBasicAuth(client_id, client_secret), data=data).json()
-    print("fitbit token refreshed")
-
-    table.put_item(
-                    Item={
-                        'platform': 'fitbit',
-                        'client_id': client_id,
-                        'client_secret': client_secret,
-                        'url_refresh_token': url_refresh_token,
-                        'refresh_token': resp_json['refresh_token'],
-                        'access_token': resp_json['access_token'],
-                        'url_steps': url_steps,
-                    },
-                )
-    return
-
-def refresh_strava_token():
-    dynamodb = boto3.resource('dynamodb', region_name='ap-southeast-2')
-    table = dynamodb.Table('djmio_platform_urls')
-    auth_urls = get_user_data()
-    
-    url = auth_urls['strava']['url_refresh_token']
-    
-    url_api = auth_urls['strava']['url']
-    client_id = auth_urls['strava']['client_id']
-    client_secret = auth_urls['strava']['client_secret']
-    refresh_token = auth_urls['strava']['refresh_token']
-    data = {'client_id': client_id, 'grant_type': 'refresh_token', 'client_secret': client_secret, 'refresh_token': refresh_token }
-    resp_json = requests.post(url=url, data=data).json()
-    print("strava token refreshed")
-
-    table.put_item(
-                    Item={
-                        'platform': 'strava',
+                        'platform': platform,
                         'refresh_token': resp_json['refresh_token'],
                         'access_token': resp_json['access_token'],
                         'url_refresh_token': url,
@@ -491,6 +440,29 @@ def refresh_strava_token():
                         'client_secret': client_secret,
                     },
                 )
+
+    # response = table.update_item(
+    #     Key={
+    #         'url_link': row['url_link'],
+    #     },
+    #     UpdateExpression="set notified = :r",
+    #     ExpressionAttributeValues={
+    #         ':r': 'true',
+    #     },
+    #     ReturnValues="UPDATED_NEW"
+    #     )
+
+    # response = table.update_item(
+    #     Key={
+    #         'url_link': row['url_link'],
+    #     },
+    #     UpdateExpression="set notified = :r",
+    #     ExpressionAttributeValues={
+    #         ':r': 'true',
+    #     },
+    #     ReturnValues="UPDATED_NEW"
+    #     )
+
     return
 
 def get_data_from_site(url):
