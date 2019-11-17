@@ -8,6 +8,7 @@ from datetime import date
 import collections
 from io import StringIO
 from multiprocessing import Process
+import jsonpickle
 
 from flask import Flask
 from flask import request
@@ -15,6 +16,7 @@ from flask import render_template
 from flask import redirect
 from flask import url_for
 from flask import send_file
+from flask import jsonify
 
 from requests.auth import HTTPBasicAuth
 
@@ -51,6 +53,22 @@ def read_from_s3weekly():
 def read_from_bw_image():
     filename = 'bw_years.png'
     return send_file(filename, cache_timeout=app.config['FILE_DOWNLOAD_CACHE_TIMEOUT'], mimetype='image/gif')
+
+@app.route("/api/daily")
+def api_daily():
+    start_time = arrow.utcnow()
+
+    allDays = generate_all_days_data()
+    
+    #Reversing it to make the newest days the lowest array index
+    all_days_list = list(allDays)[::-1]
+
+    finish_time = arrow.utcnow()
+
+    print(str(finish_time - start_time) + " " + "Generating api daily")
+
+
+    return jsonpickle.encode(allDays)
 
 @app.route("/daily_gen")
 def main_page():
@@ -150,7 +168,7 @@ def main_page():
     # duplicate for weekly etc
     save_html_to_s3(buf.getvalue(),'current_full_page_djmio')
 
-    print(str(finish_time - start_time) + " " + "Generating data array")
+    print(str(finish_time - start_time) + " " + "Whole Page Generation")
 
     return buf.getvalue()
 
@@ -404,6 +422,7 @@ def get_user_data():
 
 
 def refresh_token_misc(platform):
+    start_time_token = arrow.utcnow()
     dynamodb = boto3.resource('dynamodb', region_name='ap-southeast-2')
     table = dynamodb.Table('djmio_platform_urls')
     auth_urls = get_user_data()
@@ -424,7 +443,8 @@ def refresh_token_misc(platform):
         data = {'client_id': client_id, 'grant_type': 'refresh_token', 'client_secret': client_secret, 'refresh_token': refresh_token }
         resp_json = requests.post(url=url, data=data).json()
 
-    print(platform + " token refreshed")
+    finish_time_token = arrow.utcnow()
+    print(str(finish_time_token - start_time_token) + " " + platform + " token refreshed")
 
     # Change to patch just these 2 attributes, then don't need to store above:
     # - refresh_token
@@ -461,8 +481,7 @@ def refresh_token_misc(platform):
     #         ':r': 'true',
     #     },
     #     ReturnValues="UPDATED_NEW"
-    #     )
-
+    #     )finish_time = arrow.utcnow()
     return
 
 def get_data_from_site(url):
