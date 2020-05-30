@@ -25,6 +25,9 @@ import djm_utils
 week_day = ['M','T','W','T','F','S','S']
 week_day_long = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 
+all_data_memory = []
+
+
 app = Flask(__name__)
 
 @app.route("/")
@@ -70,6 +73,16 @@ def api_daily():
 
     return jsonpickle.encode(allDays)
 
+@app.route("/daily_mem")
+def daily_mem():
+    #import pdb; pdb.set_trace()
+    return str(all_data_memory)
+
+@app.route("/daily_mem/<date_url>")
+def daily_mem_day(date_url='01-01-2020'):
+    #import pdb; pdb.set_trace()
+    return str(all_data_memory[djm_utils.local_date_str_to_ordinal(date_url,'%d-%m-%Y')])
+
 @app.route("/daily_gen")
 def main_page():
 
@@ -79,8 +92,11 @@ def main_page():
     buf.write("DJM.IO<br><br>")
 
     allDays = generate_all_days_data()
-    
-    #Reversing it to make the newest days the lowest array index
+    global all_data_memory
+    all_data_memory = allDays
+
+
+    #Reversing it to make the newest days the lowest array index 
     all_days_list = list(allDays)[::-1]
 
     week_bws = []
@@ -594,4 +610,5 @@ class StravaActivity(object):
 
 
 if __name__ == '__main__':
+    main_page() #737507, M 23-03-2020
     main()
