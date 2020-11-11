@@ -19,16 +19,26 @@ from flask import send_file
 from flask import jsonify
 
 from requests.auth import HTTPBasicAuth
-
+from flask_cors import CORS
 import djm_utils
+
+# configuration
+DEBUG = True
+
+# instantiate the app
+app = Flask(__name__)
+app.config.from_object(__name__)
+
+# enable CORS
+CORS(app)
+
 
 week_day = ['M','T','W','T','F','S','S']
 week_day_long = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 
 all_data_memory = []
+all_data_memory_summary = ""
 
-
-app = Flask(__name__)
 
 @app.route("/")
 def read_from_s3():
@@ -78,10 +88,46 @@ def daily_mem():
     #import pdb; pdb.set_trace()
     return str(all_data_memory)
 
+@app.route("/summary_mem")
+def summary_mem():
+    #import pdb; pdb.set_trace()
+
+    return jsonpickle.encode(all_data_memory_summary.split("<br>"))
+
+# Return the given date + 6 days of data
 @app.route("/daily_mem/<date_url>")
 def daily_mem_day(date_url='01-01-2020'):
     #import pdb; pdb.set_trace()
-    return str(all_data_memory[djm_utils.local_date_str_to_ordinal(date_url,'%d-%m-%Y')])
+    chosen_date_ord = djm_utils.local_date_str_to_ordinal(date_url,'%d-%m-%Y')
+    ordinals = []
+    for x in range(0,7):
+        ordinals.append(chosen_date_ord + x)
+
+    return_data = []
+    for ordinal in ordinals:
+        if (ordinal in all_data_memory): 
+
+            date_day_of_week = week_day_long[djm_utils.convert_ord_to_day_of_week(all_data_memory[ordinal].date)]
+
+            return_data.append({
+                "date": f"{date_day_of_week} {djm_utils.ordinal_to_str(all_data_memory[ordinal].date)}",
+                "bodyweight": all_data_memory[ordinal].bodyweight,
+                "steps": all_data_memory[ordinal].steps,
+                "calories": all_data_memory[ordinal].calories,
+                "lifting_sessions": all_data_memory[ordinal].lifting_sessions,
+                "strava_sessions": all_data_memory[ordinal].strava_activities
+                })
+        else:
+            date_day_of_week = week_day_long[djm_utils.convert_ord_to_day_of_week(ordinal)]
+            return_data.append({
+                "date": f"{date_day_of_week} {djm_utils.ordinal_to_str(ordinal)}",
+                "bodyweight": 0,
+                "steps": 0,
+                "calories": 0,
+                "lifting_sessions": [],
+                "strava_sessions": []                
+                })
+    return jsonpickle.encode(return_data)
 
 @app.route("/daily_gen")
 def main_page():
@@ -192,8 +238,7 @@ def main_page():
 @app.route("/weekly_gen")
 def weekly_page():
     buf = StringIO()
-    buf.write("DJM.IO<br><br>")
-
+    global all_data_memory_summary
     allDays = generate_all_days_data()
     
     #Reversing it to make the newest days the lowest array index
@@ -269,6 +314,7 @@ def weekly_page():
             strava_dist_running = 0
             strava_dist_riding = 0
 
+    all_data_memory_summary = buf.getvalue()
     save_html_to_s3(buf.getvalue(),'current_weekly_page_djmio')
 
     return buf.getvalue()
@@ -281,14 +327,14 @@ def generate_all_days_data():
 
     # Get all the user data from each service
     refresh_token_misc('withings')
-    refresh_token_misc('strava')
+    #refresh_token_misc('strava')
     refresh_token_misc('fitbit')
     
     auth_urls = get_user_data()
 
     try:
         #data_strava = []
-        data_strava = get_data_from_site(auth_urls['strava']['url'] + auth_urls['strava']['access_token'])
+        data_strava = get_data_from_site(auth_urls['strava']['url'] + auth_urls['strava']['access_token'] + '&per_page=200')
     except:
         data_strava = []
 
@@ -298,10 +344,10 @@ def generate_all_days_data():
     except:
         pass
 
-    #try:
-    #    data_tye = get_data_from_site(auth_urls['tye']['url'])[::-1]
-    #except:
-    data_tye = []
+    try:
+        data_tye = get_data_from_site(auth_urls['tye']['url'])[::-1]
+    except:
+        data_tye = []
     
     try:
         data_withings = get_data_withings(auth_urls['withings']['url'], {"Authorization": "Bearer {}".format(auth_urls['withings']['access_token'])})
@@ -538,7 +584,7 @@ def save_html_to_s3(full_html_page, object_name):
 
 def main():
     #main_page()
-    app.run()
+    app.run(use_reloader=False)
 
 class OneDay(object):
     def __init__(self, 
@@ -610,5 +656,10 @@ class StravaActivity(object):
 
 
 if __name__ == '__main__':
-    main_page() #737507, M 23-03-2020
+    #Generates the main page, and stored the results in memory for return via the API endpoints
+    #main_page() #737507, M 23-03-2020
+
+    # Generate the summary weekly page, and stores the results in memory for return via the API endpoints
+    # Note this will refresh the data 4 times
+    weekly_page()
     main()
