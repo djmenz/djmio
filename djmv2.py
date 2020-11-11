@@ -10,6 +10,8 @@ from io import StringIO
 from multiprocessing import Process
 import jsonpickle
 
+from waitress import serve
+
 from flask import Flask
 from flask import request
 from flask import render_template
@@ -130,7 +132,7 @@ def daily_mem_day(date_url='01-01-2020'):
     return jsonpickle.encode(return_data)
 
 @app.route("/daily_gen")
-def main_page():
+def daily_page():
 
     start_time = arrow.utcnow()
 
@@ -582,10 +584,6 @@ def save_html_to_s3(full_html_page, object_name):
     s3 = boto3.resource('s3')
     s3.Bucket('djmio').put_object(Key=object_name, Body=full_html_page)
 
-def main():
-    #main_page()
-    app.run(use_reloader=False)
-
 class OneDay(object):
     def __init__(self, 
         date = date.toordinal(datetime.datetime.now()), 
@@ -655,11 +653,32 @@ class StravaActivity(object):
         return ("date: " + str(self.strava_date) + ' ' + str(self.strava_description) + " " + 'distance: ' + str(self.strava_distance))
 
 
+
+def main():
+    #daily_page()
+    #app.run(use_reloader=False)
+    serve(app, host='0.0.0.0', port=5000)
+
 if __name__ == '__main__':
     #Generates the main page, and stored the results in memory for return via the API endpoints
-    #main_page() #737507, M 23-03-2020
+    #daily_page() #737507, M 23-03-2020
 
     # Generate the summary weekly page, and stores the results in memory for return via the API endpoints
     # Note this will refresh the data 4 times
-    weekly_page()
+    #weekly_page()
     main()
+
+
+# Endpoints
+
+# Gets the API data and generates the html pages for s3. These are activated by x4 daily cronjob on the webserver
+# @app.route("/daily_gen")
+# @app.route("/weekly_gen")
+
+# Retrieves the current S3 page
+# @app.route("/d")
+# @app.route("/w")
+
+# Retrieves data from memory, but only if the generator functions have been run first
+# @app.route("/daily_mem")
+# @app.route("/summary_mem")
