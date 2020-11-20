@@ -72,8 +72,7 @@ def read_from_bw_image():
 @app.route("/api/daily")
 def api_daily():
     start_time = arrow.utcnow()
-
-    allDays = generate_all_days_data()
+    allDays = load_all_days_data_from_s3_file()
     
     #Reversing it to make the newest days the lowest array index
     all_days_list = list(allDays)[::-1]
@@ -82,19 +81,19 @@ def api_daily():
 
     print(str(finish_time - start_time) + " " + "Generating api daily")
 
-
     return jsonpickle.encode(allDays)
 
 @app.route("/daily_mem")
 def daily_mem():
     #import pdb; pdb.set_trace()
-    return str(all_data_memory)
+    return str(load_all_days_data_from_s3_file())
 
 @app.route("/summary_mem")
 def summary_mem():
     #import pdb; pdb.set_trace()
 
-    return jsonpickle.encode(all_data_memory_summary.split("<br>"))
+    return all_data_memory_summary
+    #return jsonpickle.encode(all_data_memory_summary.split("<br>"))
 
 # Return the given date + 6 days of data
 @app.route("/daily_mem/<date_url>")
@@ -139,7 +138,7 @@ def daily_page():
     buf = StringIO()
     buf.write("DJM.IO<br><br>")
 
-    allDays = generate_all_days_data()
+    allDays = load_all_days_data_from_s3_file()
     global all_data_memory
     all_data_memory = allDays
 
@@ -198,18 +197,25 @@ def daily_page():
                 buf.write("---Strava Activities<br>")
             
             for strava_activity in week_strava_activities:
+                #print(strava_activity)
+
                 act_day = week_day_long[djm_utils.convert_ord_to_day_of_week(djm_utils.local_date_str_to_ordinal(strava_activity.strava_date, '%Y-%m-%dT%H:%M:%SZ'))]
-                pace = strava_activity.strava_time / 60 / strava_activity.strava_distance * 1000
-                pace_seconds = (pace % 1) * 60
-                pace_seconds_str = ("{:.0f}".format(pace_seconds))
-                pace_seconds_str = pace_seconds_str.zfill(2)
+                
+                if strava_activity.strava_type == 'Run':
+                    pace = strava_activity.strava_time / 60 / strava_activity.strava_distance * 1000
+                    pace_seconds = (pace % 1) * 60
+                    pace_seconds_str = ("{:.0f}".format(pace_seconds))
+                    pace_seconds_str = pace_seconds_str.zfill(2)
+                    pace_details = str(int(pace)) + ':' + pace_seconds_str + ' mins/km'
+                if strava_activity.strava_type == 'Ride':
+                    pace_details = "{:.2f}".format(((strava_activity.strava_distance/1000) / (strava_activity.strava_time/3600))) + " km/hr"
 
                 buf.write(act_day + ': ' 
                                   + str(strava_activity.strava_type) + " - "
                                   + str(strava_activity.strava_description) + " "
                                   + "{:.2f}".format(strava_activity.strava_distance/1000) + "km "
                                   + str(datetime.timedelta(seconds=strava_activity.strava_time)) + ' - '
-                                  + str(int(pace)) + ':' + pace_seconds_str + ' /km' '<br>')
+                                  + pace_details + '<br>')
 
             if len(week_lifting) > 0:
                 buf.write("---Lifting Sessions<br>")
@@ -241,7 +247,7 @@ def daily_page():
 def weekly_page():
     buf = StringIO()
     global all_data_memory_summary
-    allDays = generate_all_days_data()
+    allDays = load_all_days_data_from_s3_file()
     
     #Reversing it to make the newest days the lowest array index
     all_days_list = list(allDays)[::-1]
@@ -323,13 +329,24 @@ def weekly_page():
 
 #import pdb; pdb.set_trace() 
 
+def load_all_days_data_from_s3_file():
+    s3 = boto3.client('s3')
+    s3.download_file('djmio', 'latest_all_days_json', '/tmp/allDays.json')
+    file = open('/tmp/allDays.json', 'r')
+    #import pdb; pdb.set_trace() 
+    allDays = jsonpickle.decode(file.read())
+
+    file.close()
+    return allDays
+
+
 def generate_all_days_data():
 
     allDays = collections.OrderedDict()
 
     # Get all the user data from each service
     refresh_token_misc('withings')
-    #refresh_token_misc('strava')
+    refresh_token_misc('strava')
     refresh_token_misc('fitbit')
     
     auth_urls = get_user_data()
@@ -406,7 +423,7 @@ def generate_all_days_data():
             allDays[this_day].carbs = data_entry['carbs']
             allDays[this_day].calories = data_entry['calories']
             allDays[this_day].protein = data_entry['protein']
-            allDays[this_day].fat = data_entry['fats']
+            allDays[this_day].fats = data_entry['fats']
         except KeyError:
             #print('key error tye')
             continue
@@ -471,6 +488,14 @@ def generate_all_days_data():
 
     finish_time = arrow.utcnow()
     print(str(finish_time - start_time) + " consolidating all data" )
+
+    # Save all days data as json to S3
+    with open("allDays.json", 'w') as file:
+        file.write(jsonpickle.encode(allDays))
+
+    s3 = boto3.resource('s3')
+    s3.Bucket('djmio').put_object(Key="latest_all_days_json", Body=open("allDays.json",'rb'))
+
     return allDays
 
 def get_user_data():
@@ -572,6 +597,7 @@ def get_step_data_fitbit(url, headers):
     return resp_json
 
 # Test function retrieving static version from S3 - will be replaced with proper copy later
+# Taken from http://www.liftmuch.club/api/v1/workouts after logging in
 def get_liftmuch_data():
     s3 = boto3.client('s3')
     s3.download_file('djmio', 'sept15_liftmuch.json', '/tmp/liftmuch.json')
@@ -612,10 +638,10 @@ class OneDay(object):
     def __repr__(self):
         return (week_day[djm_utils.convert_ord_to_day_of_week(self.date)] + " " + djm_utils.ordinal_to_str(self.date) + " "
             + 'bw: ' + str(self.bodyweight) + " " 
-            + 'cals: ' + str(self.calories) + " " 
-            + 'P: ' + str(self.protein) + " "
-            + 'C: ' + str(self.carbs) + " "
-            + 'F: ' + str(self.fats) + " "
+            + 'cals: ' + str("{:.2f}".format(self.calories)) + " " 
+            + 'P: ' + str("{:.2f}".format(self.protein)) + " "
+            + 'C: ' + str("{:.2f}".format(self.carbs)) + " "
+            + 'F: ' + str("{:.2f}".format(self.fats)) + " "
             + 'steps: ' + str(self.steps)
             )
 
@@ -650,14 +676,17 @@ class StravaActivity(object):
         self.strava_type = strava_type
 
     def __repr__(self):
-        return ("date: " + str(self.strava_date) + ' ' + str(self.strava_description) + " " + 'distance: ' + str(self.strava_distance))
+        return ("date: " + str(self.strava_date) + ' ' 
+            + str(self.strava_description) + " " + 'distance: ' + str(self.strava_distance) + ' ' 
+            + "time:" + str(self.strava_time)
+            )
 
 
 
 def main():
-    #daily_page()
+    #generate_all_days_data()
     #app.run(use_reloader=False)
-    serve(app, host='0.0.0.0', port=5000)
+    serve(app, host='0.0.0.0', port=80)
 
 if __name__ == '__main__':
     #Generates the main page, and stored the results in memory for return via the API endpoints
@@ -667,18 +696,3 @@ if __name__ == '__main__':
     # Note this will refresh the data 4 times
     #weekly_page()
     main()
-
-
-# Endpoints
-
-# Gets the API data and generates the html pages for s3. These are activated by x4 daily cronjob on the webserver
-# @app.route("/daily_gen")
-# @app.route("/weekly_gen")
-
-# Retrieves the current S3 page
-# @app.route("/d")
-# @app.route("/w")
-
-# Retrieves data from memory, but only if the generator functions have been run first
-# @app.route("/daily_mem")
-# @app.route("/summary_mem")
