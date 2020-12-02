@@ -9,6 +9,7 @@ import collections
 from io import StringIO
 from multiprocessing import Process
 import jsonpickle
+import sys
 
 from waitress import serve
 
@@ -208,6 +209,7 @@ def daily_page():
                     pace_seconds_str = pace_seconds_str.zfill(2)
                     pace_details = str(int(pace)) + ':' + pace_seconds_str + ' mins/km'
                 if strava_activity.strava_type == 'Ride':
+
                     pace_details = "{:.2f}".format(((strava_activity.strava_distance/1000) / (strava_activity.strava_time/3600))) + " km/hr"
 
                 buf.write(act_day + ': ' 
@@ -405,7 +407,8 @@ def generate_all_days_data():
             strava_date = date_entry['start_date_local'], 
             strava_description = date_entry['name'], 
             strava_distance=date_entry['distance'],
-            strava_time=date_entry['elapsed_time'],
+            strava_time=date_entry['elapsed_time'], #moving_time' vs 'elapsed_time':
+            strava_moving_time=date_entry['moving_time'],
             strava_type=date_entry['type']
         )
 
@@ -665,7 +668,7 @@ class StravaActivity(object):
         strava_date = date.toordinal(datetime.datetime.now()), 
         strava_description = "default_strava", 
         strava_distance=0,
-        strava_time=0,
+        strava_time=0,        strava_moving_time=0,
         strava_type="default",
         ):
 
@@ -673,6 +676,7 @@ class StravaActivity(object):
         self.strava_description = strava_description
         self.strava_distance = strava_distance # in metres
         self.strava_time = strava_time # in seconds
+        self.strava_moving_time = strava_moving_time # in seconds
         self.strava_type = strava_type
 
     def __repr__(self):
@@ -684,9 +688,15 @@ class StravaActivity(object):
 
 
 def main():
-    #generate_all_days_data()
+    if len(sys.argv) == 2:
+        if sys.argv[1] == 'refresh':
+            generate_all_days_data()
+            daily_page()
+            weekly_page()
+
     #app.run(use_reloader=False)
-    serve(app, host='0.0.0.0', port=80)
+    else:
+        serve(app, host='0.0.0.0', port=80)
 
 if __name__ == '__main__':
     #Generates the main page, and stored the results in memory for return via the API endpoints
