@@ -11,8 +11,6 @@ from multiprocessing import Process
 import jsonpickle
 import sys
 
-from waitress import serve
-
 from flask import Flask
 from flask import request
 from flask import render_template
@@ -136,10 +134,14 @@ def daily_mem_day(date_url='01-01-2020'):
 @app.route("/daily_gen")
 def daily_page():
 
+    today = datetime.datetime.now()
+    today_str = "date"
+    today_str = f"{today.hour}:{today.minute} {today.day}/{today.month}/{today.year}"
+
     start_time = arrow.utcnow()
 
     buf = StringIO()
-    buf.write("DJM.IO<br><br>")
+    buf.write(f"DJM.IO {today_str} <br><br>")
 
     allDays = load_all_days_data_from_s3_file()
     global all_data_memory
@@ -360,7 +362,8 @@ def main():
 
     #app.run(use_reloader=False)
     else:
-        serve(app, host='0.0.0.0', port=80)
+        app.run(host='0.0.0.0', port=8080,use_reloader=False)
+        #serve(app, host='0.0.0.0', port=80)
 
 if __name__ == '__main__':
     #Generates the main page, and stored the results in memory for return via the API endpoints
