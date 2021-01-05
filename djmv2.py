@@ -68,6 +68,12 @@ def read_from_bw_image():
     filename = 'bw_years.png'
     return send_file(filename, cache_timeout=app.config['FILE_DOWNLOAD_CACHE_TIMEOUT'], mimetype='image/gif')
 
+# this should be changed to read from memory if present
+@app.route("/api")
+def daily_mem():
+    #import pdb; pdb.set_trace()
+    return str(load_all_days_data_from_s3_file())
+
 @app.route("/api/daily")
 def api_daily():
     start_time = arrow.utcnow()
@@ -82,21 +88,8 @@ def api_daily():
 
     return jsonpickle.encode(allDays)
 
-# this should be changed to read from memory if present
-@app.route("/daily_mem")
-def daily_mem():
-    #import pdb; pdb.set_trace()
-    return str(load_all_days_data_from_s3_file())
-
-@app.route("/summary_mem")
-def summary_mem():
-    #import pdb; pdb.set_trace()
-
-    return all_data_memory_summary
-    #return jsonpickle.encode(all_data_memory_summary.split("<br>"))
-
 # Return the given date + 6 days of data
-@app.route("/daily_mem/<date_url>")
+@app.route("/api/daily/<date_url>")
 def daily_mem_day(date_url='01-01-2020'):
     #import pdb; pdb.set_trace()
     chosen_date_ord = djm_utils.local_date_str_to_ordinal(date_url,'%d-%m-%Y')
@@ -130,6 +123,13 @@ def daily_mem_day(date_url='01-01-2020'):
                 })
     return jsonpickle.encode(return_data)
 
+@app.route("/api/summary")
+def summary_mem():
+    #import pdb; pdb.set_trace()
+
+    return all_data_memory_summary
+    #return jsonpickle.encode(all_data_memory_summary.split("<br>"))
+
 # Convert the raw day data into a html page
 @app.route("/daily_gen")
 def daily_page():
@@ -141,7 +141,9 @@ def daily_page():
     start_time = arrow.utcnow()
 
     buf = StringIO()
-    buf.write(f"DJM.IO {today_str} <br><br>")
+    #buf.write(f"DJM.IO {today_str} <br><br>")
+    buf.write(f"DJM.IO <br>")
+    buf.write(f"<a href=/w>weekly view</a><br><br>")
 
     allDays = load_all_days_data_from_s3_file()
     global all_data_memory
@@ -252,6 +254,7 @@ def daily_page():
 @app.route("/weekly_gen")
 def weekly_page():
     buf = StringIO()
+    buf.write(f"<a href=/d>daily view</a><br><br>")
     global all_data_memory_summary
     allDays = load_all_days_data_from_s3_file()
     
