@@ -353,7 +353,8 @@ class StravaActivity(object):
         strava_date = date.toordinal(datetime.datetime.now()), 
         strava_description = "default_strava", 
         strava_distance=0,
-        strava_time=0,        strava_moving_time=0,
+        strava_time=0,        
+        strava_moving_time=0,
         strava_type="default",
         ):
 

@@ -68,12 +68,13 @@ def read_from_bw_image():
     filename = 'bw_years.png'
     return send_file(filename, cache_timeout=app.config['FILE_DOWNLOAD_CACHE_TIMEOUT'], mimetype='image/gif')
 
-# this should be changed to read from memory if present
+# returns a string of all the data, not very useful
 @app.route("/api")
 def daily_mem():
     #import pdb; pdb.set_trace()
     return str(load_all_days_data_from_s3_file())
 
+# returns some weird serialised format of all the data
 @app.route("/api/daily")
 def api_daily():
     start_time = arrow.utcnow()
@@ -85,7 +86,7 @@ def api_daily():
     finish_time = arrow.utcnow()
 
     print(str(finish_time - start_time) + " " + "Generating api daily")
-
+    #import pdb; pdb.set_trace()
     return jsonpickle.encode(allDays)
 
 # Return the given date + 6 days of data
@@ -96,6 +97,10 @@ def daily_mem_day(date_url='01-01-2020'):
     ordinals = []
     for x in range(0,7):
         ordinals.append(chosen_date_ord + x)
+
+    global all_data_memory
+    if not all_data_memory: 
+        all_data_memory = load_all_days_data_from_s3_file()
 
     return_data = []
     for ordinal in ordinals:
@@ -123,12 +128,16 @@ def daily_mem_day(date_url='01-01-2020'):
                 })
     return jsonpickle.encode(return_data)
 
+# returns some not very useful strings of data
 @app.route("/api/summary")
 def summary_mem():
     #import pdb; pdb.set_trace()
+    global all_data_memory_summary
+    if not all_data_memory_summary: 
+        weekly_page()
 
-    return all_data_memory_summary
-    #return jsonpickle.encode(all_data_memory_summary.split("<br>"))
+    #return all_data_memory_summary
+    return jsonpickle.encode(all_data_memory_summary.split("<br>"))
 
 # Convert the raw day data into a html page
 @app.route("/daily_gen")
@@ -216,13 +225,14 @@ def daily_page():
                     pace_details = str(int(pace)) + ':' + pace_seconds_str + ' mins/km'
                 if strava_activity.strava_type == 'Ride':
 
-                    pace_details = "{:.2f}".format(((strava_activity.strava_distance/1000) / (strava_activity.strava_time/3600))) + " km/hr"
+                    pace_details = "{:.2f}".format(((strava_activity.strava_distance/1000) / (strava_activity.strava_moving_time/3600))) + " km/hr"
 
                 buf.write(act_day + ': ' 
                                   + str(strava_activity.strava_type) + " - "
                                   + str(strava_activity.strava_description) + " "
                                   + "{:.2f}".format(strava_activity.strava_distance/1000) + "km "
-                                  + str(datetime.timedelta(seconds=strava_activity.strava_time)) + ' - '
+                                  + str(datetime.timedelta(seconds=strava_activity.strava_moving_time)) + "("
+                                  + str(datetime.timedelta(seconds=strava_activity.strava_time)) + ') - '
                                   + pace_details + '<br>')
 
             if len(week_lifting) > 0:
@@ -270,6 +280,7 @@ def weekly_page():
     strava_dist_running = 0
     strava_dist_riding = 0
 
+    buf.write('<table border="1";style="border:1px solid black;">')
     for day in all_days_list:
         
         int_day = djm_utils.convert_ord_to_day_of_week(allDays[day].date)
@@ -298,9 +309,10 @@ def weekly_page():
 
             num_strava += len(allDays[day].strava_activities) 
 
-        #buf.write(str(allDays[day]) + '<br>')
+        
         if (int_day == 0):
-            buf.write(str(allDays[day])[0:12] + ' - ')
+            buf.write('<tr><td>')
+            buf.write(str(allDays[day])[0:12] + ' ')
             week_avg_bw = 0.0
             week_avg_steps = 0
             week_avg_calories = 0.0
@@ -314,13 +326,13 @@ def weekly_page():
             if ((len(week_calories)) > 0):
                 week_avg_calories = sum(week_calories) / len(week_calories)
 
-            buf.write("Avg BW: " + ("{:.2f}".format(week_avg_bw)) + 'kg - ')
-            buf.write("Avg steps: " + ("{:.0f}".format(week_avg_steps)) + ' - ')
-            buf.write("Avg cals: " + ("{:.0f}".format(week_avg_calories)) + ' ({}/7)'.format(len(week_calories)) + ' ')
-            buf.write("L:" + str(num_liftingsessions) + ' (' + djm_utils.convert_mins_to_hrmins_str(duration_liftingsessions) + ') ')
-            buf.write("S:" + str(num_strava) + " (Run " + "{:.1f}".format(strava_dist_running/1000) 
-                           + "km " + " Ride " + "{:.1f}".format(strava_dist_riding/1000) + "km " + ")")
-            buf.write('<br>')
+            buf.write("<td>Avg BW: " + ("{:.2f}".format(week_avg_bw)) + 'kg' + ' ({}/7) '.format(len(week_bws)) + '</td> ')
+            buf.write("<td>Avg steps: " + ("{:.0f}".format(week_avg_steps)) + ' </td> ')
+            buf.write("<td>Avg cals: " + ("{:.0f}".format(week_avg_calories)) + ' ({}/7)'.format(len(week_calories)) + '</td>')
+            buf.write("<td>L:" + str(num_liftingsessions) + ' (' + djm_utils.convert_mins_to_hrmins_str(duration_liftingsessions) + ') </td>')
+            buf.write("<td>S:" + str(num_strava) + " - Run " + "{:.1f}".format(strava_dist_running/1000) 
+                           + "km " + " Ride " + "{:.1f}".format(strava_dist_riding/1000) + "km ")
+            buf.write('</td></tr>')
 
             week_bws = []
             week_steps = []
@@ -331,6 +343,7 @@ def weekly_page():
             strava_dist_running = 0
             strava_dist_riding = 0
 
+    buf.write("</table>")
     all_data_memory_summary = buf.getvalue()
     save_html_to_s3(buf.getvalue(),'current_weekly_page_djmio')
 
