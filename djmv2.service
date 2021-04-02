@@ -1,0 +1,22 @@
+[Unit]
+Description=gunicorn service for flask app
+After=syslog.target
+
+[Service]
+ExecStart=/usr/bin/sudo /usr/local/bin/gunicorn --bind 0.0.0.0:8080 --chdir /home/ec2-user/djmio djmv2:app
+
+# \/ \/ <- Added post recording for better restart perf.
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+# /\ /\ <- Added post recording for better restart perf.
+
+# Requires systemd version 211 or newer
+#RuntimeDirectory=/home/ec2-user/djmio
+Restart=on-failure
+StandardError=syslog
+
+
+[Install]
+WantedBy=multi-user.target

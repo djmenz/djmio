@@ -1,3 +1,4 @@
+from bs4 import BeautifulSoup
 import requests
 import arrow
 import boto3
@@ -70,7 +71,7 @@ def generate_all_days_data():
         data_fitbit_step = []
 
     try:
-        data_liftmuch = get_liftmuch_data()    
+        data_liftmuch = get_liftmuch_data(auth_urls['liftmuch'])    
     except:
         data_liftmuch = []
 
@@ -144,7 +145,7 @@ def generate_all_days_data():
             print('key error fitbit steps')
             continue  
 
-    #Populate liftmuch data - currently won't list entries without a time listed
+    #Populate liftmuch data
     try:
         data_liftmuch = data_liftmuch['workouts']
     except:
@@ -290,12 +291,35 @@ def get_step_data_fitbit(url, headers):
 
 # Test function retrieving static version from S3 - will be replaced with proper copy later
 # Taken from http://www.liftmuch.club/api/v1/workouts after logging in
-def get_liftmuch_data():
-    s3 = boto3.client('s3')
-    s3.download_file('djmio', 'sept15_liftmuch.json', '/tmp/liftmuch.json')
-    file = open('/tmp/liftmuch.json', 'r')
-    resp_json = json.load(file)
-    file.close()
+def get_liftmuch_data(liftmuch_data_dict):
+    start_time = arrow.utcnow()
+
+    session_req = requests.Session()
+
+    get_rep = session_req.get(liftmuch_data_dict['url_refresh_token'])
+    soup = BeautifulSoup(get_rep.content, 'html.parser')
+    csrf_cur = soup.body.input.attrs['value']
+   
+    payload = {            
+            'csrf_token': csrf_cur,
+            'next':'/',
+            'reg_nex':'/',
+            'email': liftmuch_data_dict['username'],
+            'password': liftmuch_data_dict['password']
+             }
+
+    resp_login = session_req.post(url=liftmuch_data_dict['url_refresh_token'], data=payload)
+    resp_json = session_req.get(liftmuch_data_dict['url']).json()
+
+    #s3 = boto3.client('s3')
+    #s3.download_file('djmio', 'sept15_liftmuch.json', '/tmp/liftmuch.json')
+    #file = open('/tmp/liftmuch.json', 'r')
+    #resp_json = json.load(file)
+    #file.close()
+
+    finish_time = arrow.utcnow()
+    print(str(finish_time - start_time) + " " + liftmuch_data_dict['url'].split('/')[2] + " items: " + str(len(resp_json['workouts'])))
+
     return resp_json
 
 class OneDay(object):

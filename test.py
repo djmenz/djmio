@@ -5,6 +5,7 @@ import math
 from datetime import timedelta
 from operator import add
 from flask import request
+import boto3
 
 from flask import render_template
 
@@ -20,21 +21,31 @@ def hello():
 	buf = StringIO()
 	buf2 = StringIO()
 
+	#Get Urls from dynamo
+	dynamodb = boto3.resource('dynamodb', region_name='ap-southeast-2')
+	table = dynamodb.Table('djmio_platform_urls')
 
-    
+	url_response = table.scan()	
+	api_urls = url_response['Items']
+	
+	api_dict = {}
+	for api_url in api_urls:
+		api_dict[api_url['platform']] = api_url['url']
+
 	#read_urls_from_file
 	url_file = open("url_info.txt","r")
 
 	# Strava
-	url_strava = url_file.readline()
+	url_strava = api_dict['strava']
 	try:
 		response_strava = urllib.request.urlopen(url_strava)
 		data_strava = json.loads(response_strava.read())
+		print(data_strava)
 	except:
 		data_strava = ""
 	
 	# Nokia
-	url_nokia = url_file.readline()
+	url_nokia = api_dict['nokiahealth']
 	try:
 		response = urllib.request.urlopen(url_nokia)
 		data = json.loads(response.read())
@@ -43,7 +54,7 @@ def hello():
 
 	# trackyoureating
 	start_tye_url = datetime.datetime.fromordinal(((datetime.date.today().toordinal()) - number_of_days)).strftime("%Y%m%d")
-	url_tye = url_file.readline().rstrip()+start_tye_url
+	url_tye = api_dict['tye']+start_tye_url
 	response_tye = urllib.request.urlopen(url_tye)
 	try:
 		data_tye = json.loads(response_tye.read())
@@ -249,4 +260,9 @@ class OneDayData(object):
 
 		self.liftmuch = liftmuch
 
+
+
+
+#export FLASK_APP=test.py
+#flask run
 	
