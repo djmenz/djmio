@@ -14,6 +14,10 @@ def ordinal_to_str(ordinal):
     date_str = date.fromordinal(ordinal).strftime('%d-%m-%Y')
     return date_str
 
+def ordinal_to_str_iso(ordinal):
+    date_str = date.fromordinal(ordinal).strftime('%Y%m%d')
+    return date_str
+
 def local_date_str_to_epoch(strdate, date_string):
     datetime_object = datetime.datetime.strptime(strdate, date_string)
     timestamp = datetime.datetime.timestamp(datetime_object)

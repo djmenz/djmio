@@ -32,7 +32,7 @@ week_day_long = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 
 # Go to all the endpoints, saves the resultant data into a json file on S3
 
-def generate_all_days_data():
+def generate_all_days_data(archive=False):
 
     allDays = collections.OrderedDict()
 
@@ -75,10 +75,28 @@ def generate_all_days_data():
     except:
         data_liftmuch = []
 
+    # Saving the raw data from all the api endpoints
+    if archive:
+        consolidated_data = {
+            'strava': data_strava,
+            'tye': data_tye,
+            'withings': data_withings,
+            'fitbit_step': data_fitbit_step,
+            'liftmuch': data_liftmuch
+        }
+
+        with open("raw_data_archive.json", 'w') as file:
+            file.write(jsonpickle.encode(consolidated_data))
+
+        t = datetime.datetime.now()
+        file_name = str(t.year) + "_" + str(t.month) + "_" + str(t.day) + "_" + "raw_data_archive.json"
+        s3 = boto3.resource('s3')
+        s3.Bucket('djmio').put_object(Key=file_name, Body=open("raw_data_archive.json",'rb'))
+
     #data_fitbit_hr = get_hr_data_fitbit()
     #data_fitbit_sleep = get_hr_data_sleep()
     start_time = arrow.utcnow()
-    
+        
     #First day of 2018 
     earliest_date = djm_utils.local_date_str_to_ordinal('01-01-2018', '%d-%m-%Y')
     todays_date_epoch = int(datetime.datetime.now().timestamp())
@@ -104,7 +122,7 @@ def generate_all_days_data():
 
         try:
             #print(temp_strava_activity)
-            allDays[this_day].strava_activities.append(temp_strava_activity)
+            allDays[this_day].strava_activities.append(temp_strava_activity.__dict__)
         except KeyError:
             #print('Key Error Error Strava')
             continue
@@ -168,23 +186,37 @@ def generate_all_days_data():
         try:
             sess_description = data_entry['extra_info']['notes']        
         except Exception as e:
-            pass        
+            pass
+
+        try:
+            sess_exercises = data_entry['exercises']       
+        except Exception as e:
+            print(e)
+            pass                
 
         # Convert liftmuch date to allDay's date
         try:
-            temp_liftmuch_session = LiftingSession(data_entry['date'], sess_description, sess_time_mins)
-            allDays[this_day].lifting_sessions.append(temp_liftmuch_session)
+            temp_liftmuch_session = LiftingSession(data_entry['date'], sess_description, sess_time_mins, sess_exercises)
+            allDays[this_day].lifting_sessions.append(temp_liftmuch_session.__dict__)
         except Exception as e:
             #print(data_entry['date'])
             #print('date not in bounds of display\n ')
             continue
 
+    res_dict = collections.OrderedDict()
+
+    # at this point we have an ordered dictionary of OneDay objects that we need to dump to json, so need to convert day object to json
+    for day in allDays.keys():
+        date_string = djm_utils.ordinal_to_str_iso(day)
+        res_dict[date_string] = allDays[day].__dict__
+
+
     finish_time = arrow.utcnow()
     print(str(finish_time - start_time) + " consolidating all data" )
 
-    # Save all days data as json to S3
+    # Save all days data as serialised object to S3
     with open("allDays.json", 'w') as file:
-        file.write(jsonpickle.encode(allDays))
+        file.write(json.dumps((res_dict)))
 
     s3 = boto3.resource('s3')
     s3.Bucket('djmio').put_object(Key="latest_all_days_json", Body=open("allDays.json",'rb'))
@@ -361,12 +393,14 @@ class LiftingSession(object):
     def __init__(self, 
         lifting_date = date.toordinal(datetime.datetime.now()), 
         lifting_description = "default_lifts",
-        lifting_duration = 0 #minutes 
+        lifting_duration = 0, #minutes 
+        lifting_exercises = []
         ):
 
         self.lifting_date = lifting_date
         self.lifting_description = lifting_description
         self.lifting_duration = lifting_duration
+        self.lifting_exercises = lifting_exercises
 
     def __repr__(self):
         return ("date: " + str(self.lifting_date) + ' ' + str(self.lifting_description))
