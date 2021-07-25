@@ -117,7 +117,8 @@ def generate_all_days_data(archive=False):
             strava_distance=date_entry['distance'],
             strava_time=date_entry['elapsed_time'], #moving_time' vs 'elapsed_time':
             strava_moving_time=date_entry['moving_time'],
-            strava_type=date_entry['type']
+            strava_type=date_entry['type'],
+            strava_raw=date_entry
         )
 
         try:
@@ -414,6 +415,7 @@ class StravaActivity(object):
         strava_time=0,        
         strava_moving_time=0,
         strava_type="default",
+        strava_raw={}
         ):
 
         self.strava_date = strava_date
@@ -422,6 +424,7 @@ class StravaActivity(object):
         self.strava_time = strava_time # in seconds
         self.strava_moving_time = strava_moving_time # in seconds
         self.strava_type = strava_type
+        self.strava_raw = strava_raw
 
     def __repr__(self):
         return ("date: " + str(self.strava_date) + ' ' 
