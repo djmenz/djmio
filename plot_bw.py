@@ -20,7 +20,7 @@ def epoch_to_local_time_yy(epoch_time):
 
 def main():
     output_file_name = 'bw_years.png'
-    
+
     djmv2.refresh_withings_token()
     auth_urls = djmv2.get_user_data()
 
@@ -65,16 +65,10 @@ def main():
     #clean_data = manual_data + clean_data
 
     date_list,bw_list = zip(*clean_data)
-
-
-
     dates = [pd.to_datetime(d) for d in date_list]
-
 
     x_var = dates
     y_var = bw_list
-
-    
 
     fig, ax = plt.subplots(1,1)
     

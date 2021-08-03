@@ -80,7 +80,7 @@ def read_from_bw_image():
     filename = 'bw_years.png'
     return send_file(filename, cache_timeout=app.config['FILE_DOWNLOAD_CACHE_TIMEOUT'], mimetype='image/gif')
 
-# returns th whole json dictionary
+# returns the whole json dictionary
 @app.route("/api")
 def api_base():
     return jsonify(load_all_days_data_from_s3_file())
@@ -88,7 +88,7 @@ def api_base():
 # returns the server start time
 @app.route("/start")
 def api_start():
-    return f"process init: {server_start}"
+    return f"container process init: {server_start}"
 
 # Return the given date + 6 days of data
 @app.route("/api/daily/<date_url>")
