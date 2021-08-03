@@ -1,0 +1,9 @@
+Flask
+waitress
+boto3
+arrow
+requests
+jsonpickle
+flask_cors
+bs4
+flask_apscheduler

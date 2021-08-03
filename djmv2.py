@@ -5,6 +5,8 @@ import math
 import datetime
 import json
 from datetime import date
+import time
+from flask_apscheduler import APScheduler
 import collections
 from io import StringIO
 from multiprocessing import Process
@@ -19,6 +21,7 @@ from flask import url_for
 from flask import send_file
 from flask import jsonify
 
+from waitress import serve
 from requests.auth import HTTPBasicAuth
 from flask_cors import CORS
 import djm_utils
@@ -34,11 +37,20 @@ app.config.from_object(__name__)
 # enable CORS
 CORS(app)
 
+# scheduler = APScheduler()
+# scheduler.init_app(app)
+# scheduler.start()
+
 week_day = ['M','T','W','T','F','S','S']
 week_day_long = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 
 all_data_memory = []
 all_data_memory_summary = ""
+
+server_start = datetime.datetime.now().strftime("%d/%m/%y %H:%M:%S")
+
+# @scheduler.task('interval', id='do_job_1', seconds=5, misfire_grace_time=900)
+# def job1():
 
 
 @app.route("/")
@@ -71,8 +83,12 @@ def read_from_bw_image():
 # returns th whole json dictionary
 @app.route("/api")
 def api_base():
-
     return jsonify(load_all_days_data_from_s3_file())
+
+# returns the server start time
+@app.route("/start")
+def api_start():
+    return f"process init: {server_start}"
 
 # Return the given date + 6 days of data
 @app.route("/api/daily/<date_url>")
@@ -370,8 +386,8 @@ def main():
     else:
         daily_page()
         weekly_page()
-        app.run(host='0.0.0.0', port=8080,use_reloader=False)
-        #serve(app, host='0.0.0.0', port=80)
+        #app.run(host='0.0.0.0', port=8080,use_reloader=False)
+        serve(app, host='0.0.0.0', port=8080)
 
 if __name__ == '__main__':
     #Generates the main page, and stored the results in memory for return via the API endpoints
