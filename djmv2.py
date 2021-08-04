@@ -152,6 +152,7 @@ def daily_page():
     buf = StringIO()
     #buf.write(f"DJM.IO {today_str} <br><br>")
     buf.write(f"DJM.IO <br>")
+    buf.write(f"{server_start}<br>")
     buf.write(f"<a href=/w>weekly view</a><br><br>")
 
     allDays = load_all_days_data_from_s3_file()
