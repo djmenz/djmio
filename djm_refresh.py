@@ -44,11 +44,22 @@ def generate_all_days_data(archive=False):
     auth_urls = get_user_data()
 
     try:
-        #data_strava = []
-        data_strava = get_data_from_site(auth_urls['strava']['url'] + auth_urls['strava']['access_token'] + '&per_page=200')
+        page_num = 1
+        still_data = True
+        data_strava = []
+        while still_data:
+            data_strava_one_page = get_data_from_site(auth_urls['strava']['url'] + auth_urls['strava']['access_token'] + '&per_page=200&page=' + str(page_num))
+            
+            if ('message' in data_strava_one_page and data_strava_one_page['message'] == 'Authorization Error'):
+                break
+        
+            data_strava.extend(data_strava_one_page)
+            page_num +=1
+            if len(data_strava_one_page) == 0:
+                still_data = False
     except:
         data_strava = []
-
+   
     try:
         if (data_strava['message'] == 'Authorization Error'):
             data_strava = []
