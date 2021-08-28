@@ -67,7 +67,21 @@ def generate_all_days_data(archive=False):
         pass
 
     try:
-        data_tye = get_data_from_site(auth_urls['tye']['url'])[::-1]
+        #retrieve archived data from old site
+        data_tye1_archive = []
+        s3 = boto3.client('s3')
+        s3.download_file('djmio', 'tye1_archive_2015-Aug2021.json', '/tmp/tye1_archive_2015-Aug2021.json')
+        file = open('/tmp/tye1_archive_2015-Aug2021.json', 'r')
+        data_tye1_archive = json.loads(file.read())[::-1]
+        file.close()
+        
+        #retrieve data from new tye site - temporary empty until the API is working the same
+        data_tye_new = []
+        # data_tye_new = get_data_from_site(auth_urls['tye']['url'])[::-1]
+        
+        # Consolidate
+        data_tye = data_tye1_archive + data_tye_new
+
     except:
         data_tye = []
     
