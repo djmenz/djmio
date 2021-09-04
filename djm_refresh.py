@@ -72,13 +72,13 @@ def generate_all_days_data(archive=False):
         s3 = boto3.client('s3')
         s3.download_file('djmio', 'tye1_archive_2015-Aug2021.json', '/tmp/tye1_archive_2015-Aug2021.json')
         file = open('/tmp/tye1_archive_2015-Aug2021.json', 'r')
-        data_tye1_archive = json.loads(file.read())[::-1]
+        data_tye1_archive = json.loads(file.read())[::-1] # the reversing doesn't actually matter since it gets put into a date dict later
         file.close()
         
         #retrieve data from new tye site - temporary empty until the API is working the same
         data_tye_new = []
-        # data_tye_new = get_data_from_site(auth_urls['tye']['url'])[::-1]
-        
+        data_tye_new = get_data_from_tye2(auth_urls['tye']['url'], auth_urls['tye']['username'], auth_urls['tye']['password'])
+
         # Consolidate
         data_tye = data_tye1_archive + data_tye_new
 
@@ -339,6 +339,55 @@ def get_data_withings(url, headers):
     print(str(finish_time - start_time) + " " + url.split('/')[2] + " items: " + str(len(resp_json)))
     return resp_json
 
+def get_data_from_tye2(base_url, username, pwd):
+    start_time = arrow.utcnow()
+
+    data_auth = {
+        "username": username,
+        "password" : pwd
+    }
+
+    auth_url = base_url + '/token'    
+    auth_headers = {'content-type': 'application/x-www-form-urlencoded'}
+    res = requests.post(url = auth_url, headers=auth_headers, data=data_auth)
+    access_token = res.json()['access_token']
+        
+    get_headers ={'Content-Type':'application/json', 'Authorization': 'Bearer {}'.format(access_token)}
+    tracking_get_url = base_url + '/api/trackingmerged'
+    res_data = requests.get(tracking_get_url, headers=get_headers)
+    res_json = res_data.json()
+
+    res_dict = {}
+    
+    # Converting list of individual items to day summaries
+    for item in res_json:
+        print(item)
+        if item['date'] in res_dict:
+            temp_culm = res_dict[item['date']]
+            res_dict[item['date']] = {
+                'fats' : temp_culm['fats'] + (item['fats'] * item['quantity']),
+                'protein' : temp_culm['protein'] + (item['protein']  * item['quantity']),
+                'carbs' : temp_culm['carbs'] + (item['carbs']  * item['quantity']),
+                'calories' : temp_culm['calories'] + (item['calories']  * item['quantity'])
+            }
+        else:
+            res_dict[item['date']] = {
+                'fats' : item['fats'] * item['quantity'],
+                'protein' : item['protein']  * item['quantity'],
+                'carbs' : item['carbs']  * item['quantity'],
+                'calories' : item['calories']  * item['quantity']
+                }
+
+    # convert dict to list so it matches
+    res_list = []
+    for key, values in res_dict.items():
+        values['date'] = key
+        res_list.append(values)
+
+    finish_time = arrow.utcnow()
+    print(str(finish_time - start_time) + " " + base_url + " items: " + str(len(res_list)))
+    return res_list
+
 def get_step_data_fitbit(url, headers):
     start_time = arrow.utcnow()
     resp_json = requests.get(url,headers=headers).json()
@@ -347,7 +396,6 @@ def get_step_data_fitbit(url, headers):
     print(str(finish_time - start_time) + " " + url.split('/')[2] + " items: " + str(len(resp_json)))
     return resp_json
 
-# Test function retrieving static version from S3 - will be replaced with proper copy later
 # Taken from http://www.liftmuch.club/api/v1/workouts after logging in
 def get_liftmuch_data(liftmuch_data_dict):
     start_time = arrow.utcnow()
@@ -368,12 +416,6 @@ def get_liftmuch_data(liftmuch_data_dict):
 
     resp_login = session_req.post(url=liftmuch_data_dict['url_refresh_token'], data=payload)
     resp_json = session_req.get(liftmuch_data_dict['url']).json()
-
-    #s3 = boto3.client('s3')
-    #s3.download_file('djmio', 'sept15_liftmuch.json', '/tmp/liftmuch.json')
-    #file = open('/tmp/liftmuch.json', 'r')
-    #resp_json = json.load(file)
-    #file.close()
 
     finish_time = arrow.utcnow()
     print(str(finish_time - start_time) + " " + liftmuch_data_dict['url'].split('/')[2] + " items: " + str(len(resp_json['workouts'])))
