@@ -37,7 +37,7 @@ def generate_all_days_data(archive=False):
     allDays = collections.OrderedDict()
 
     # Get all the user data from each service
-    refresh_token_misc('withings')
+    refresh_token_withings()
     refresh_token_misc('strava')
     refresh_token_misc('fitbit')
     
@@ -285,7 +285,7 @@ def refresh_token_misc(platform):
 
     finish_time_token = arrow.utcnow()
     print(str(finish_time_token - start_time_token) + " " + platform + " token refreshed")
-
+    
     # Change to patch just these 2 attributes, then don't need to store above:
     # - refresh_token
     # - access_token
@@ -301,27 +301,49 @@ def refresh_token_misc(platform):
                     },
                 )
 
-    # response = table.update_item(
-    #     Key={
-    #         'url_link': row['url_link'],
-    #     },
-    #     UpdateExpression="set notified = :r",
-    #     ExpressionAttributeValues={
-    #         ':r': 'true',
-    #     },
-    #     ReturnValues="UPDATED_NEW"
-    #     )
+    return
 
-    # response = table.update_item(
-    #     Key={
-    #         'url_link': row['url_link'],
-    #     },
-    #     UpdateExpression="set notified = :r",
-    #     ExpressionAttributeValues={
-    #         ':r': 'true',
-    #     },
-    #     ReturnValues="UPDATED_NEW"
-    #     )finish_time = arrow.utcnow()
+def refresh_token_withings():
+    platform = 'withings'
+    start_time_token = arrow.utcnow()
+    dynamodb = boto3.resource('dynamodb', region_name='ap-southeast-2')
+    table = dynamodb.Table('djmio_platform_urls')
+    auth_urls = get_user_data()
+    
+    #this can be removed when its a database patch call
+    url = auth_urls[platform]['url_refresh_token']
+    url_api = auth_urls[platform]['url']
+    client_id = auth_urls[platform]['client_id']
+    client_secret = auth_urls[platform]['client_secret']
+
+    refresh_token = auth_urls[platform]['refresh_token']
+
+    data = {'client_id': client_id, 
+            'grant_type': 'refresh_token', 
+            'client_secret': client_secret, 
+            'refresh_token': refresh_token, 
+            'action': 'requesttoken' 
+            }
+    resp_json = requests.post(url=url, data=data).json()
+
+    finish_time_token = arrow.utcnow()
+    print(str(finish_time_token - start_time_token) + " " + platform + " token refreshed")
+    
+    # Change to patch just these 2 attributes, then don't need to store above:
+    # - refresh_token
+    # - access_token
+    table.put_item(
+                    Item={
+                        'platform': platform,
+                        'refresh_token': resp_json['body']['refresh_token'],
+                        'access_token': resp_json['body']['access_token'],
+                        'url_refresh_token': url,
+                        'url': url_api,
+                        'client_id': client_id,
+                        'client_secret': client_secret,
+                    },
+                )
+
     return
 
 def get_data_from_site(url):
@@ -358,10 +380,9 @@ def get_data_from_tye2(base_url, username, pwd):
     res_json = res_data.json()
 
     res_dict = {}
-    
+
     # Converting list of individual items to day summaries
     for item in res_json:
-        print(item)
         if item['date'] in res_dict:
             temp_culm = res_dict[item['date']]
             res_dict[item['date']] = {
