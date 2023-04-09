@@ -410,6 +410,7 @@ def get_data_from_tye2(base_url, username, pwd):
     return res_list
 
 def get_step_data_fitbit(url, headers):
+   # need to fix url so its 1095 days before, not hardcoded
     start_time = arrow.utcnow()
     resp_json = requests.get(url,headers=headers).json()
     resp_json = resp_json['activities-steps']
