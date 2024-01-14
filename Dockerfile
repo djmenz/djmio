@@ -25,7 +25,7 @@ ADD . /project
 ENV FLASK_APP djmv2.py
 # ENTRYPOINT ["bash"]
 
-RUN python djvmv2.py refresh
+RUN python djmv2.py refresh
 
 # ENTRYPOINT ["python", "djmv2.py", "refresh"]
 ENTRYPOINT ["bash"]
