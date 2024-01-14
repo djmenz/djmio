@@ -19,12 +19,12 @@ RUN pip install -r /requirements.txt
 ADD . /project
 
 # Using IAM ECS role now
-# COPY credentials /root/.aws/credentials
-# COPY config /root/.aws/config
+#COPY credentials /root/.aws/credentials
+#COPY config /root/.aws/config
 
 ENV FLASK_APP djmv2.py
 # ENTRYPOINT ["bash"]
-ENTRYPOINT ["python", "djmv2.py"]
+ENTRYPOINT ["python", "djmv2.py", "refresh"]
 
 # ENTRYPOINT ["python", "-m", "flask", "run", "--host=0.0.0.0"]
 

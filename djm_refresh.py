@@ -241,11 +241,11 @@ def generate_all_days_data(archive=False):
     print(str(finish_time - start_time) + " consolidating all data" )
 
     # Save all days data as serialised object to S3
-    with open("allDays.json", 'w') as file:
+    with open("latest_all_days.json", 'w') as file:
         file.write(json.dumps((res_dict)))
 
     s3 = boto3.resource('s3')
-    s3.Bucket('djmio').put_object(Key="latest_all_days_json", Body=open("allDays.json",'rb'))
+    s3.Bucket('djmio').put_object(Key="latest_all_days.json", Body=open("latest_all_days.json",'rb'))
 
     return
 
